@@ -41,4 +41,8 @@ export default {
   'sort.default': 'По умолч.',
   'sort.frequency': 'Частые',
   'addProduct.stores': 'Магазины',
+  'theme.title':  'Тема',
+  'theme.custom': 'Свой цвет',
+  'theme.light':  'Светлая',
+  'theme.dark':   'Тёмная',
 } as Record<string, string>

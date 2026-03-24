@@ -12,7 +12,9 @@ import { useStorage } from '@/composables/useStorage'
 import StoreSection from '@/components/StoreSection.vue'
 import ProductRow from '@/components/ProductRow.vue'
 import LangToggle from '@/components/LangToggle.vue'
+import ThemePanel from '@/components/ThemePanel.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import { useTheme } from '@/composables/useTheme'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
@@ -21,6 +23,10 @@ const productsStore = useProductsStore()
 const i18n = useI18nStore()
 const storage = useStorage()
 const { bounceBadge, slideTabContent } = useSpringAnimate()
+
+// ── Theme ─────────────────────────────────────────────────────────
+useTheme() // ensures theme is applied on mount
+const isThemeOpen = ref(false)
 
 // ── Active store tab ──────────────────────────────────────────────
 const activeStoreId = ref<StoreId>(
@@ -182,12 +188,14 @@ watch(shakeDetected, (v) => {
 <template>
   <div class="home">
     <!-- Fixed top header -->
-    <header class="top-header">
+    <header class="top-header" style="position: relative;">
       <span class="app-title">{{ i18n.t('app.title') }}</span>
       <div class="header-actions">
         <button class="icon-btn" @click="openSearch" :aria-label="i18n.t('search.placeholder')">🔍</button>
+        <button class="icon-btn" @click="isThemeOpen = !isThemeOpen" :aria-label="i18n.t('theme.title')">🎨</button>
         <LangToggle />
       </div>
+      <ThemePanel :is-open="isThemeOpen" @close="isThemeOpen = false" />
     </header>
 
     <!-- Search bar — slides in below header, replaces tabs -->

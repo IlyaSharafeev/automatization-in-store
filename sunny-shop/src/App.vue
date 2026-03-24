@@ -3,11 +3,13 @@ import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
+import { useTheme } from '@/composables/useTheme'
 import BottomNav from '@/components/BottomNav.vue'
 import PwaInstallBanner from '@/components/PwaInstallBanner.vue'
 
 const sessionStore = useSessionStore()
 const historyStore = useHistoryStore()
+useTheme() // load saved theme before first render
 
 onMounted(() => {
   if (sessionStore.checkedCount === 0) {
