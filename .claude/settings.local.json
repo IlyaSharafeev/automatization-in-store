@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(cd:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(node -e \"const m = require\\(''''motion''''\\); console.log\\(Object.keys\\(m\\)\\)\")",
+      "Bash(node -e \"const m = require\\(''motion''\\); console.log\\(typeof m.spring, typeof m.animate\\)\")",
+      "Bash(node -e \":*)",
+      "Bash(grep -r ObjectTarget node_modules/motion/dist --include=*.d.ts -l)"
+    ]
+  }
+}
