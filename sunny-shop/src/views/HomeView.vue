@@ -156,7 +156,6 @@ watch(shakeDetected, (v) => {
     <!-- Fixed top header -->
     <header class="top-header">
       <span class="app-title">{{ i18n.t('app.title') }}</span>
-      <ShareButton v-if="sessionStore.checkedCount > 0" />
       <LangToggle />
     </header>
 
@@ -201,23 +200,28 @@ watch(shakeDetected, (v) => {
         {{ i18n.t('home.selected', { n: sessionStore.checkedCount }) }}
       </span>
 
-      <!-- Feature 2: repeat last when list is empty -->
-      <button
-        v-if="sessionStore.checkedCount === 0 && historyStore.lastSession"
-        class="repeat-last-btn"
-        @click="repeatLast"
-      >
-        🔁 {{ i18n.t('home.repeatLast') }}
-      </button>
+      <!-- Share + finish/repeat group -->
+      <div class="bottom-right-actions">
+        <ShareButton :disabled="sessionStore.checkedCount === 0" />
 
-      <button
-        v-else
-        class="btn-finish"
-        :disabled="sessionStore.checkedCount === 0"
-        @click="handleFinish"
-      >
-        {{ i18n.t('home.finish') }}
-      </button>
+        <!-- Feature 2: repeat last when list is empty -->
+        <button
+          v-if="sessionStore.checkedCount === 0 && historyStore.lastSession"
+          class="repeat-last-btn"
+          @click="repeatLast"
+        >
+          🔁 {{ i18n.t('home.repeatLast') }}
+        </button>
+
+        <button
+          v-else
+          class="btn-finish"
+          :disabled="sessionStore.checkedCount === 0"
+          @click="handleFinish"
+        >
+          {{ i18n.t('home.finish') }}
+        </button>
+      </div>
     </div>
 
     <!-- Confirm: clear all -->
@@ -375,6 +379,13 @@ watch(shakeDetected, (v) => {
 
 .btn-finish:disabled {
   opacity: 0.4;
+}
+
+.bottom-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .repeat-last-btn {

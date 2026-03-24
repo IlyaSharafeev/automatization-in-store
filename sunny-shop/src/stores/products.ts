@@ -2,13 +2,14 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useStorage } from '@/composables/useStorage'
 
-export type StoreId = 'zhanet' | 'lidl' | 'mladost' | 'any'
+export type StoreId = 'zhanet' | 'lidl' | 'mladost' | 'sklad' | 'any'
 export type Unit = 'кг' | 'л' | 'шт' | 'г' | 'пач' | 'бан' | '—'
 
 export interface Store {
   id: StoreId
   name: string
   color: string
+  emoji?: string
 }
 
 export interface Product {
@@ -21,10 +22,11 @@ export interface Product {
 }
 
 export const STORES: Store[] = [
-  { id: 'zhanet',  name: 'Жанет',     color: '#e91e63' },
-  { id: 'lidl',    name: 'Лідл',      color: '#1565c0' },
-  { id: 'mladost', name: 'Младост',   color: '#2e7d32' },
-  { id: 'any',     name: 'Будь-який', color: '#757575' },
+  { id: 'zhanet',  name: 'Жанет',         color: '#e91e63', emoji: '🌸' },
+  { id: 'lidl',    name: 'Лідл',          color: '#1565c0', emoji: '🔵' },
+  { id: 'mladost', name: 'Младост',       color: '#2e7d32', emoji: '🌿' },
+  { id: 'sklad',   name: 'Склад Младост', color: '#6d4c41', emoji: '📦' },
+  { id: 'any',     name: 'Будь-який',     color: '#757575', emoji: '🏪' },
 ]
 
 const SEED_PRODUCTS: Product[] = [
@@ -95,12 +97,48 @@ const SEED_PRODUCTS: Product[] = [
   { id: 'an-11', name: 'Шоколад',              storeId: 'any', unit: 'шт',  isCustom: false },
   { id: 'an-12', name: 'Сухарики',             storeId: 'any', unit: 'пач', isCustom: false },
   { id: 'an-13', name: 'Печиво',               storeId: 'any', unit: 'пач', isCustom: false },
+  // Жанет — додаткові
+  { id: 'zh-26', name: 'Сметана',              storeId: 'zhanet', unit: 'л',   isCustom: false },
+  { id: 'zh-27', name: 'Кефір',                storeId: 'zhanet', unit: 'л',   isCustom: false },
+  { id: 'zh-28', name: 'Масло вершкове',       storeId: 'zhanet', unit: 'шт',  isCustom: false },
+  { id: 'zh-29', name: 'Оселедець',            storeId: 'zhanet', unit: 'шт',  isCustom: false },
+  { id: 'zh-30', name: 'Часник',               storeId: 'zhanet', unit: 'шт',  isCustom: false },
+  // Лідл — додаткові
+  { id: 'li-18', name: 'Кетчуп',               storeId: 'lidl', unit: 'шт',  isCustom: false },
+  { id: 'li-19', name: 'Гірчиця',              storeId: 'lidl', unit: 'шт',  isCustom: false },
+  { id: 'li-20', name: 'Оцет',                 storeId: 'lidl', unit: 'шт',  isCustom: false },
+  { id: 'li-21', name: 'Консерви (боби)',       storeId: 'lidl', unit: 'шт',  isCustom: false },
+  { id: 'li-22', name: 'Вівсянка',             storeId: 'lidl', unit: 'пач', isCustom: false },
+  // Младост — додаткові
+  { id: 'ml-09', name: 'Виноград',             storeId: 'mladost', unit: 'кг',  isCustom: false },
+  { id: 'ml-10', name: 'Лимон',                storeId: 'mladost', unit: 'шт',  isCustom: false },
+  { id: 'ml-11', name: 'Груші',                storeId: 'mladost', unit: 'кг',  isCustom: false },
+  // Будь-який — додаткові
+  { id: 'an-14', name: 'Туалетний папір',      storeId: 'any', unit: 'пач', isCustom: false },
+  { id: 'an-15', name: 'Мило',                 storeId: 'any', unit: 'шт',  isCustom: false },
+  { id: 'an-16', name: 'Шампунь',              storeId: 'any', unit: 'шт',  isCustom: false },
+  { id: 'an-17', name: 'Зубна паста',          storeId: 'any', unit: 'шт',  isCustom: false },
 ]
 
 export const useProductsStore = defineStore('products', () => {
   const storage = useStorage()
 
-  const products = ref<Product[]>(storage.get<Product[]>('products') ?? [...SEED_PRODUCTS])
+  function getInitialProducts(): Product[] {
+    const stored = storage.get<Product[]>('products')
+    if (stored) {
+      const existingIds = new Set(stored.map(p => p.id))
+      const newSeed = SEED_PRODUCTS.filter(p => !existingIds.has(p.id))
+      if (newSeed.length > 0) {
+        const merged = [...stored, ...newSeed]
+        storage.set('products', merged)
+        return merged
+      }
+      return stored
+    }
+    return [...SEED_PRODUCTS]
+  }
+
+  const products = ref<Product[]>(getInitialProducts())
 
   function persist() {
     storage.set('products', products.value)

@@ -34,4 +34,6 @@ export default {
   'home.shakeConfirm': 'Струснути і очистити список?',
   'pwa.install': 'Додати на головний екран',
   'pwa.installBtn': 'Встановити',
+  'store.empty': 'Тут ще немає продуктів',
+  'store.hint': 'Натисни на продукт щоб додати',
 } as Record<string, string>

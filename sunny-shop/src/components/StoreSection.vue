@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useProductsStore, type Store } from '@/stores/products'
 import { useSessionStore } from '@/stores/session'
+import { useI18nStore } from '@/stores/i18n'
 import ProductRow from './ProductRow.vue'
 import AddProductForm from './AddProductForm.vue'
 
@@ -11,6 +12,7 @@ const props = defineProps<{
 
 const productsStore = useProductsStore()
 const sessionStore = useSessionStore()
+const i18n = useI18nStore()
 
 const products = computed(() => productsStore.productsByStore.get(props.store.id) ?? [])
 
@@ -23,6 +25,10 @@ const sortedProducts = computed(() => {
   })
 })
 
+const checkedInStore = computed(() =>
+  products.value.filter(p => sessionStore.isChecked(p.id)).length
+)
+
 function handleDelete(id: string) {
   productsStore.deleteProduct(id)
 }
@@ -30,7 +36,11 @@ function handleDelete(id: string) {
 
 <template>
   <section class="store-section">
-    <TransitionGroup name="sink" tag="div" class="product-list">
+    <div v-if="sortedProducts.length === 0" class="empty-store">
+      <p>{{ i18n.t('store.empty') }}</p>
+    </div>
+
+    <TransitionGroup name="sink" tag="div" class="product-list product-list-area">
       <ProductRow
         v-for="product in sortedProducts"
         :key="product.id"
@@ -38,6 +48,10 @@ function handleDelete(id: string) {
         @delete="handleDelete"
       />
     </TransitionGroup>
+
+    <p v-if="sortedProducts.length > 0 && checkedInStore === 0" class="store-hint">
+      {{ i18n.t('store.hint') }}
+    </p>
 
     <AddProductForm :storeId="store.id" />
   </section>
@@ -77,6 +91,21 @@ function handleDelete(id: string) {
 
 .sink-leave-to {
   opacity: 0;
+}
+
+.empty-store {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.store-hint {
+  padding: 8px 16px 4px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  opacity: 0.7;
 }
 
 @media (prefers-reduced-motion: reduce) {
