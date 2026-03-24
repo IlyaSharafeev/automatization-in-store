@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useProductsStore, STORES } from '@/stores/products'
+import { useSessionStore } from '@/stores/session'
 import { useI18nStore } from '@/stores/i18n'
 import type { ShoppingSession } from '@/stores/history'
 
@@ -9,7 +11,9 @@ const props = defineProps<{
 }>()
 
 const productsStore = useProductsStore()
+const sessionStore = useSessionStore()
 const i18n = useI18nStore()
+const router = useRouter()
 
 const expanded = ref(false)
 
@@ -37,6 +41,12 @@ const itemsByStore = computed(() => {
   }
   return result
 })
+
+function handleRepeat() {
+  sessionStore.loadFromSession(props.session.items)
+  if ('vibrate' in navigator) navigator.vibrate([10, 40, 10])
+  router.push('/')
+}
 </script>
 
 <template>
@@ -57,6 +67,10 @@ const itemsByStore = computed(() => {
             {{ item.name }} × {{ item.qty }} {{ i18n.t(`unit.${item.unit}`) }}
           </div>
         </div>
+
+        <button class="repeat-btn" @click.stop="handleRepeat">
+          🔁 {{ i18n.t('history.repeat') }}
+        </button>
       </div>
     </Transition>
   </div>
@@ -130,6 +144,28 @@ const itemsByStore = computed(() => {
   font-size: 14px;
   color: var(--text);
   padding: 2px 0;
+}
+
+.repeat-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--primary);
+  color: var(--primary);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+.repeat-btn:active {
+  background: rgba(76, 175, 80, 0.08);
+  transform: scale(0.97);
 }
 
 .expand-enter-active {

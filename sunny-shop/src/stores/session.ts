@@ -50,6 +50,11 @@ export const useSessionStore = defineStore('session', () => {
     persist()
   }
 
+  function loadFromSession(items: CheckedItem[]) {
+    checkedItems.value = items.map(item => ({ ...item }))
+    persist()
+  }
+
   const isChecked = computed(() => (productId: string): boolean => {
     return checkedItems.value.some(i => i.productId === productId)
   })
@@ -60,5 +65,5 @@ export const useSessionStore = defineStore('session', () => {
 
   const checkedCount = computed(() => checkedItems.value.length)
 
-  return { checkedItems, toggle, updateQty, finishSession, clearCurrent, isChecked, getQty, checkedCount }
+  return { checkedItems, toggle, updateQty, finishSession, clearCurrent, loadFromSession, isChecked, getQty, checkedCount }
 })

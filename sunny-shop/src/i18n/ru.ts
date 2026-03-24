@@ -28,4 +28,10 @@ export default {
   'unit.пач': 'пач',
   'unit.бан': 'бан',
   'unit.—': '—',
+  'history.repeat': 'Повторить',
+  'home.repeatLast': 'Повторить последнюю покупку',
+  'home.share': 'Поделиться',
+  'home.shakeConfirm': 'Встряхнуть и очистить список?',
+  'pwa.install': 'Добавить на главный экран',
+  'pwa.installBtn': 'Установить',
 } as Record<string, string>

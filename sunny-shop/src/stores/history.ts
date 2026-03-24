@@ -51,5 +51,9 @@ export const useHistoryStore = defineStore('history', () => {
       .map(([id]) => id)
   })
 
-  return { sessions, addSession, clearHistory, getFrequentProductIds }
+  const lastSession = computed((): ShoppingSession | null =>
+    sessions.value.length > 0 ? (sessions.value[0] ?? null) : null
+  )
+
+  return { sessions, addSession, clearHistory, getFrequentProductIds, lastSession }
 })

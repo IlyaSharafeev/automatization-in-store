@@ -1,23 +1,25 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import confetti from 'canvas-confetti'
 import { STORES, type StoreId } from '@/stores/products'
 import { useSessionStore } from '@/stores/session'
+import { useHistoryStore } from '@/stores/history'
 import { useI18nStore } from '@/stores/i18n'
 import { useSpringAnimate } from '@/composables/useSpringAnimate'
 import { useShake } from '@/composables/useShake'
 import { useStorage } from '@/composables/useStorage'
-import { useVibrate } from '@vueuse/core'
 import StoreSection from '@/components/StoreSection.vue'
 import LangToggle from '@/components/LangToggle.vue'
+import ShareButton from '@/components/ShareButton.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
+const historyStore = useHistoryStore()
 const i18n = useI18nStore()
 const storage = useStorage()
 const { bounceBadge, slideTabContent, animateTabIndicator } = useSpringAnimate()
-const { vibrate } = useVibrate()
 
 // ── Active store tab ──────────────────────────────────────────────
 const activeStoreId = ref<StoreId>(
@@ -48,21 +50,18 @@ function switchTab(storeId: StoreId) {
   activeStoreId.value = storeId
   storage.set('activeStore', storeId)
 
-  // Move indicator with spring
   nextTick(() => {
     const tabEl = tabButtonEls.value[newIndex]
     if (tabEl && indicatorEl.value) {
       animateTabIndicator(indicatorEl.value, tabEl.offsetLeft, tabEl.offsetWidth)
     }
-    // Slide store content in from correct direction
     if (storeContentEl.value) {
       slideTabContent(storeContentEl.value, direction)
     }
-    // Stagger product rows
     const rows = storeContentEl.value?.querySelectorAll<HTMLElement>('.product-row')
     if (rows && rows.length) {
-      const spring = useSpringAnimate()
-      spring.slideInRows(Array.from(rows))
+      const sp = useSpringAnimate()
+      sp.slideInRows(Array.from(rows))
     }
   })
 }
@@ -76,7 +75,6 @@ onMounted(() => {
       indicatorEl.value.style.left = `${tabEl.offsetLeft}px`
       indicatorEl.value.style.width = `${tabEl.offsetWidth}px`
     }
-    // Entrance animation for initial load
     if (storeContentEl.value) {
       const rows = storeContentEl.value.querySelectorAll<HTMLElement>('.product-row')
       if (rows.length) {
@@ -106,10 +104,42 @@ function handleShakeClear() {
   sessionStore.clearCurrent()
 }
 
-function handleFinish() {
-  vibrate([30])
+// ── Feature 1: Confetti on finish ─────────────────────────────────
+async function handleFinish() {
+  confetti({
+    particleCount: 120,
+    spread: 80,
+    origin: { y: 0.7 },
+    colors: ['#4CAF50', '#FF9800', '#e91e63', '#1565c0', '#2e7d32', '#fff'],
+    disableForReducedMotion: true,
+  })
+
+  setTimeout(() => {
+    confetti({
+      particleCount: 60,
+      spread: 120,
+      origin: { y: 0.6 },
+      startVelocity: 20,
+      colors: ['#4CAF50', '#FF9800', '#ffffff'],
+      disableForReducedMotion: true,
+    })
+  }, 200)
+
+  if ('vibrate' in navigator) navigator.vibrate([30, 50, 30, 50, 60])
+
+  await new Promise<void>(resolve => setTimeout(resolve, 600))
+
   sessionStore.finishSession()
   router.push('/history')
+}
+
+// ── Feature 2: Repeat last purchase ───────────────────────────────
+function repeatLast() {
+  const last = historyStore.lastSession
+  if (last) {
+    sessionStore.loadFromSession(last.items)
+    if ('vibrate' in navigator) navigator.vibrate([10, 40, 10])
+  }
 }
 
 // ── Shake to clear ────────────────────────────────────────────────
@@ -126,6 +156,7 @@ watch(shakeDetected, (v) => {
     <!-- Fixed top header -->
     <header class="top-header">
       <span class="app-title">{{ i18n.t('app.title') }}</span>
+      <ShareButton v-if="sessionStore.checkedCount > 0" />
       <LangToggle />
     </header>
 
@@ -151,7 +182,7 @@ watch(shakeDetected, (v) => {
 
     <!-- Scrollable content: only active store -->
     <main class="content">
-      <div ref="storeContentEl" class="store-content">
+      <div ref="storeContentEl" class="store-content store-tabs-content">
         <StoreSection :key="activeStoreId" :store="activeStore" />
       </div>
     </main>
@@ -170,7 +201,17 @@ watch(shakeDetected, (v) => {
         {{ i18n.t('home.selected', { n: sessionStore.checkedCount }) }}
       </span>
 
+      <!-- Feature 2: repeat last when list is empty -->
       <button
+        v-if="sessionStore.checkedCount === 0 && historyStore.lastSession"
+        class="repeat-last-btn"
+        @click="repeatLast"
+      >
+        🔁 {{ i18n.t('home.repeatLast') }}
+      </button>
+
+      <button
+        v-else
         class="btn-finish"
         :disabled="sessionStore.checkedCount === 0"
         @click="handleFinish"
@@ -190,7 +231,7 @@ watch(shakeDetected, (v) => {
     <!-- Confirm: shake to clear -->
     <ConfirmDialog
       :visible="showShakeClearDialog"
-      :message="'Струснути і очистити список?'"
+      :message="i18n.t('home.shakeConfirm')"
       @confirm="handleShakeClear"
       @cancel="showShakeClearDialog = false"
     />
@@ -218,7 +259,8 @@ watch(shakeDetected, (v) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 12px;
+  gap: 8px;
   z-index: 20;
 }
 
@@ -226,6 +268,7 @@ watch(shakeDetected, (v) => {
   font-size: 16px;
   font-weight: 500;
   color: var(--text);
+  flex-shrink: 0;
 }
 
 /* ── Tab bar ── */
@@ -236,9 +279,7 @@ watch(shakeDetected, (v) => {
   z-index: 15;
   background: var(--card);
   border-bottom: 1px solid var(--border);
-  /* room for the absolute indicator */
   padding-bottom: 0;
-  /* push below fixed header */
   margin-top: 60px;
 }
 
@@ -266,12 +307,11 @@ watch(shakeDetected, (v) => {
   height: 3px;
   border-radius: 2px 2px 0 0;
   will-change: left, width;
-  transition: none; /* motion handles this */
+  transition: none;
 }
 
 /* ── Scrollable content ── */
 .content {
-  /* tabs are in the flow (sticky), no additional margin needed */
   padding: 0 0 calc(64px + 64px + env(safe-area-inset-bottom)) 0;
 }
 
@@ -335,6 +375,18 @@ watch(shakeDetected, (v) => {
 
 .btn-finish:disabled {
   opacity: 0.4;
+}
+
+.repeat-last-btn {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--primary);
+  color: var(--primary);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {

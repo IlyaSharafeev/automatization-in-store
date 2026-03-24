@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { RouterView, useRouter } from 'vue-router'
+import { RouterView } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
 import BottomNav from '@/components/BottomNav.vue'
+import PwaInstallBanner from '@/components/PwaInstallBanner.vue'
 
 const sessionStore = useSessionStore()
 const historyStore = useHistoryStore()
@@ -26,6 +27,7 @@ onMounted(() => {
       </Transition>
     </RouterView>
     <BottomNav />
+    <PwaInstallBanner />
   </div>
 </template>
 

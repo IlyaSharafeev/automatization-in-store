@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useSwipe, onLongPress, useVibrate } from '@vueuse/core'
-import { animate, spring } from 'motion'
+import { animate } from 'motion'
 import { useSessionStore } from '@/stores/session'
 import { useI18nStore } from '@/stores/i18n'
 import { useSpringAnimate } from '@/composables/useSpringAnimate'
@@ -31,6 +31,7 @@ const plusBtn = ref<HTMLButtonElement>()
 const showDelete = ref(false)
 const showConfirm = ref(false)
 const offsetX = ref(0)
+const lastTap = ref(0)
 
 const isChecked = computed(() => sessionStore.isChecked(props.product.id))
 const qty = computed(() => sessionStore.getQty(props.product.id))
@@ -68,6 +69,31 @@ function handleCheck() {
   vibrate(wasChecked ? [5] : [10])
   showDelete.value = false
   if (checkboxEl.value) bounceCheck(checkboxEl.value)
+}
+
+const doubleTapEase: [number, number, number, number] = [0.34, 1.56, 0.64, 1]
+
+function handleRowClick() {
+  const now = Date.now()
+  const timeSinceLastTap = now - lastTap.value
+
+  if (timeSinceLastTap < 300 && isChecked.value && !props.product.isReminder) {
+    // Double-tap: double the quantity
+    const currentQty = sessionStore.getQty(props.product.id)
+    sessionStore.updateQty(props.product.id, currentQty * 2)
+    if (qtyEl.value) {
+      animate(qtyEl.value,
+        { scaleX: [1, 1.6, 0.9, 1.15, 1], scaleY: [1, 1.6, 0.9, 1.15, 1] },
+        { ease: doubleTapEase, duration: 0.5 }
+      )
+    }
+    if ('vibrate' in navigator) navigator.vibrate([15, 30, 15])
+    lastTap.value = 0
+    return
+  }
+
+  lastTap.value = now
+  handleCheck()
 }
 
 function handleMinus() {
@@ -129,18 +155,18 @@ function cancelDelete() {
       {{ qty === 1 ? '🗑' : '−1' }}
     </div>
 
-    <!-- Row content -->
+    <!-- Row content — handles both single tap (toggle) and double-tap (×2 qty) -->
     <div
       ref="contentEl"
       class="row-content"
       :class="{ swiping: isSwiping }"
       :style="{ transform: `translateX(${offsetX}px)` }"
+      @click="handleRowClick"
     >
-      <!-- Checkbox — stop pointerdown so long-press won't fire from this area -->
+      <!-- @pointerdown.stop prevents long-press from firing when touching checkbox -->
       <button
         class="checkbox-btn"
         @pointerdown.stop
-        @click.stop="handleCheck"
         :aria-label="product.name"
       >
         <div ref="checkboxEl" class="checkbox" :class="{ active: isChecked }">
@@ -150,10 +176,10 @@ function cancelDelete() {
 
       <span class="product-name">{{ product.name }}</span>
 
-      <div v-if="isChecked && !product.isReminder" class="qty-stepper">
-        <button ref="minusBtn" @click.stop="handleMinus">−</button>
+      <div v-if="isChecked && !product.isReminder" class="qty-stepper" @click.stop>
+        <button ref="minusBtn" @click="handleMinus">−</button>
         <span ref="qtyEl" class="qty-num">{{ qty }}</span>
-        <button ref="plusBtn" @click.stop="handlePlus">＋</button>
+        <button ref="plusBtn" @click="handlePlus">＋</button>
       </div>
 
       <span class="unit">{{ product.isReminder ? '' : i18n.t(`unit.${product.unit}`) }}</span>
@@ -272,12 +298,17 @@ function cancelDelete() {
   transition: color 200ms ease;
 }
 
+.product-row.checked {
+  opacity: 0.55;
+}
+
 .product-row.checked .product-name {
-  color: var(--text);
+  text-decoration: line-through;
+  color: var(--muted);
 }
 
 .product-row:not(.checked) .product-name {
-  color: var(--muted);
+  color: var(--text);
 }
 
 .qty-stepper {
