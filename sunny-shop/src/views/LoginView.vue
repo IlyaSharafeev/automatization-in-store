@@ -5,12 +5,21 @@ import { useAuthStore } from '@/stores/auth'
 import { useProductsStore } from '@/stores/products'
 import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
+import { useApi } from '@/composables/useApi'
+
+declare global {
+  interface Window {
+    google: any
+    AppleID: any
+  }
+}
 
 const router = useRouter()
 const authStore = useAuthStore()
 const productsStore = useProductsStore()
 const sessionStore = useSessionStore()
 const historyStore = useHistoryStore()
+const api = useApi()
 
 const tab = ref<'login' | 'register'>('login')
 const email = ref('')
@@ -47,19 +56,48 @@ function switchTab(t: 'login' | 'register') {
   error.value = ''
 }
 
-// Google Sign-In placeholder — rendered into #google-btn by the GSI script when ready
+async function handleGoogleLogin(response: any) {
+  try {
+    const data = await api.post<{ accessToken: string; refreshToken: string; user: any }>(
+      '/api/auth/google',
+      { idToken: response.credential }
+    )
+    if (data?.accessToken) {
+      authStore.setTokens(data.accessToken, data.refreshToken)
+      authStore.setUser(data.user)
+      router.push('/')
+    }
+  } catch (e) {
+    console.error('Google login error:', e)
+  }
+}
+
 onMounted(() => {
-  const g = (window as any).google
-  if (g) {
-    g.accounts.id.renderButton(
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  if (!clientId) {
+    console.warn('VITE_GOOGLE_CLIENT_ID not set')
+    return
+  }
+
+  const script = document.createElement('script')
+  script.src = 'https://accounts.google.com/gsi/client'
+  script.async = true
+  script.defer = true
+  script.onload = () => {
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleGoogleLogin,
+    })
+    window.google.accounts.id.renderButton(
       document.getElementById('google-btn'),
-      { theme: 'outline', size: 'large', width: 280 }
+      { theme: 'outline', size: 'large', width: 280, text: 'signin_with', locale: 'uk' }
     )
   }
+  document.head.appendChild(script)
 })
 
 function appleSignIn() {
-  ;(window as any).AppleID?.auth.signIn()
+  window.AppleID?.auth.signIn()
 }
 </script>
 
