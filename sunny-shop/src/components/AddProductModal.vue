@@ -68,20 +68,17 @@ function onOverlayClick(e: MouseEvent) {
           <option v-for="u in UNITS" :key="u" :value="u">{{ i18n.t(`unit.${u}`) }}</option>
         </select>
 
-        <div class="store-checkboxes">
-          <p class="field-label">{{ i18n.t('addProduct.stores') }}</p>
-          <div
+        <div class="store-tags">
+          <button
             v-for="store in STORES"
             :key="store.id"
-            class="store-checkbox-row"
+            class="store-tag"
+            :class="{ active: selectedStores.includes(store.id) }"
+            :style="{ '--store-color': store.color } as any"
             @click="toggleStore(store.id)"
           >
-            <div class="mini-checkbox" :class="{ active: selectedStores.includes(store.id) }">
-              <span v-if="selectedStores.includes(store.id)">✓</span>
-            </div>
-            <span class="store-dot" :style="{ background: store.color }"></span>
-            <span class="store-label">{{ store.name }}</span>
-          </div>
+            {{ store.name }}
+          </button>
         </div>
 
         <div class="form-actions">
@@ -190,51 +187,31 @@ function onOverlayClick(e: MouseEvent) {
   flex-shrink: 0;
 }
 
-.store-checkboxes { margin: 4px 0; }
-
-.field-label {
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 8px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.store-checkbox-row {
+.store-tags {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
 }
-.store-checkbox-row:last-child { border-bottom: none; }
 
-.mini-checkbox {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+.store-tag {
+  padding: 6px 14px;
+  border-radius: 20px;
   border: 1.5px solid var(--border);
-  background: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
+  background: transparent;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 150ms;
+  white-space: nowrap;
+}
+
+.store-tag.active {
+  background: var(--store-color);
+  border-color: var(--store-color);
   color: white;
-  flex-shrink: 0;
-  transition: all 150ms ease;
+  font-weight: 500;
 }
-.mini-checkbox.active { background: var(--primary); border-color: var(--primary); }
-
-.store-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.store-label { font-size: 15px; color: var(--text); }
 
 /* ── Sticky action bar ── */
 .form-actions {
