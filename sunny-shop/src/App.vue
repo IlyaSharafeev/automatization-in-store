@@ -3,15 +3,32 @@ import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
+import { useProductsStore } from '@/stores/products'
+import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 import BottomNav from '@/components/BottomNav.vue'
 import PwaInstallBanner from '@/components/PwaInstallBanner.vue'
 
 const sessionStore = useSessionStore()
 const historyStore = useHistoryStore()
+const productsStore = useProductsStore()
+const authStore = useAuthStore()
 useTheme() // load saved theme before first render
 
-onMounted(() => {
+onMounted(async () => {
+  // Try to restore auth session
+  await authStore.init()
+
+  // If logged in, sync data from server
+  if (authStore.isLoggedIn) {
+    await Promise.all([
+      productsStore.fetchFromServer(),
+      sessionStore.fetchFromServer(),
+      historyStore.fetchFromServer(),
+    ])
+  }
+
+  // Pre-check frequent items if session is empty
   if (sessionStore.checkedCount === 0) {
     const frequent = historyStore.getFrequentProductIds(12)
     if (frequent.length > 0) {

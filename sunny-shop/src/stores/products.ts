@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
 import { useStorage } from '@/composables/useStorage'
+import { useApi } from '@/composables/useApi'
 
 export type StoreId = 'zhanet' | 'lidl' | 'mladost' | 'sklad' | 'any'
 export type Unit = 'кг' | 'л' | 'шт' | 'г' | 'пач' | 'бан' | '—'
@@ -122,6 +124,7 @@ const SEED_PRODUCTS: Product[] = [
 
 export const useProductsStore = defineStore('products', () => {
   const storage = useStorage()
+  const api = useApi()
 
   function getInitialProducts(): Product[] {
     const stored = storage.get<Product[]>('products')
@@ -140,14 +143,97 @@ export const useProductsStore = defineStore('products', () => {
 
   const products = ref<Product[]>(getInitialProducts())
 
+  // Track updatedAt per product for server-side conflict resolution
+  const updatedAtMap = ref<Record<string, string>>(
+    storage.get<Record<string, string>>('products_updatedAt') ?? {}
+  )
+
   function persist() {
     storage.set('products', products.value)
+    storage.set('products_updatedAt', updatedAtMap.value)
+  }
+
+  function touchProduct(id: string) {
+    updatedAtMap.value[id] = new Date().toISOString()
+  }
+
+  // Sync to server (debounced 2s)
+  const syncToServer = useDebounceFn(async () => {
+    const { useAuthStore } = await import('./auth')
+    const authStore = useAuthStore()
+    if (!authStore.isLoggedIn) return
+
+    const payload = products.value.map(p => ({
+      clientId: p.id,
+      name: p.name,
+      storeId: p.storeId,
+      unit: p.unit,
+      isCustom: p.isCustom,
+      isReminder: p.isReminder ?? false,
+      isDeleted: false,
+      updatedAt: updatedAtMap.value[p.id] ?? new Date(0).toISOString(),
+    }))
+
+    try {
+      const data = await api.post<{ products: any[] }>('/api/products/sync', { products: payload })
+      if (data) {
+        // Merge server products back (server is source of truth for non-custom)
+        const serverIds = new Set(data.products.map((p: any) => p.clientId))
+        // Add any server products not locally known
+        for (const sp of data.products) {
+          if (!products.value.find(p => p.id === sp.clientId)) {
+            products.value.push({
+              id: sp.clientId,
+              name: sp.name,
+              storeId: sp.storeId as StoreId,
+              unit: sp.unit as Unit,
+              isCustom: sp.isCustom,
+              isReminder: sp.isReminder,
+            })
+          }
+        }
+        // Remove products that server deleted and aren't custom local
+        products.value = products.value.filter(p => p.isCustom || serverIds.has(p.id))
+        persist()
+      }
+    } catch {
+      // offline — ignore
+    }
+  }, 2000)
+
+  // Fetch from server on login and merge
+  async function fetchFromServer() {
+    try {
+      const data = await api.get<{ products: any[] }>('/api/products')
+      if (!data) return
+
+      const now = new Date().toISOString()
+      for (const sp of data.products) {
+        const local = products.value.find(p => p.id === sp.clientId)
+        if (!local) {
+          products.value.push({
+            id: sp.clientId,
+            name: sp.name,
+            storeId: sp.storeId as StoreId,
+            unit: sp.unit as Unit,
+            isCustom: sp.isCustom,
+            isReminder: sp.isReminder,
+          })
+          updatedAtMap.value[sp.clientId] = now
+        }
+      }
+      persist()
+    } catch {
+      // offline — ignore
+    }
   }
 
   function addCustomProduct(name: string, storeId: StoreId, unit: Unit) {
     const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     products.value.push({ id, name, storeId, unit, isCustom: true })
+    touchProduct(id)
     persist()
+    syncToServer()
   }
 
   function deleteProduct(id: string) {
@@ -155,6 +241,8 @@ export const useProductsStore = defineStore('products', () => {
     if (idx !== -1) {
       products.value.splice(idx, 1)
       persist()
+      // Fire-and-forget soft delete on server
+      api.delete(`/api/products/${encodeURIComponent(id)}`).catch(() => {})
     }
   }
 
@@ -166,5 +254,5 @@ export const useProductsStore = defineStore('products', () => {
     return map
   })
 
-  return { products, addCustomProduct, deleteProduct, productsByStore }
+  return { products, addCustomProduct, deleteProduct, productsByStore, fetchFromServer, syncToServer }
 })
