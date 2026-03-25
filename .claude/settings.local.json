@@ -15,7 +15,10 @@
       "Bash(wc -l /c/Users/Ilya/Desktop/projects/automatization-in-store/sunny-shop/src/stores/*.ts)",
       "Bash(ls /c/Users/Ilya/Desktop/projects/automatization-in-store/sunny-shop/.env*)",
       "Bash(npx vue-tsc:*)",
-      "Bash(ls /c/Users/Ilya/Desktop/projects/automatization-in-store/sunny-shop-backend/.env*)"
+      "Bash(ls /c/Users/Ilya/Desktop/projects/automatization-in-store/sunny-shop-backend/.env*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
