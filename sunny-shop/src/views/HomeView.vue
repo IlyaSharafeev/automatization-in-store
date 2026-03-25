@@ -663,7 +663,7 @@ watch(shakeDetected, (v) => {
 /* ── FAB ── */
 .fab {
   position: fixed;
-  bottom: calc(72px + env(safe-area-inset-bottom) + 16px);
+  bottom: calc(72px + env(safe-area-inset-bottom) + 65px);
   right: calc(50% - 240px + 16px);
   width: 56px;
   height: 56px;
