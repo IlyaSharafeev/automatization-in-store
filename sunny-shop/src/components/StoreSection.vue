@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useProductsStore, type Store, type Product } from '@/stores/products'
 import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
@@ -15,6 +15,8 @@ const productsStore = useProductsStore()
 const sessionStore = useSessionStore()
 const historyStore = useHistoryStore()
 const i18n = useI18nStore()
+
+const checkedExpanded = ref(true)
 
 const products = computed(() => productsStore.productsByStore.get(props.store.id) ?? [])
 
@@ -33,17 +35,17 @@ function applySort(arr: Product[]): Product[] {
   return arr
 }
 
-// Checked items sink to bottom; sort applied within each group
-const sortedProducts = computed(() => {
-  const list = products.value
-  const unchecked = list.filter(p => !sessionStore.isChecked(p.id))
-  const checked = list.filter(p => sessionStore.isChecked(p.id))
-  return [...applySort(unchecked), ...applySort(checked)]
-})
-
-const checkedInStore = computed(() =>
-  products.value.filter(p => sessionStore.isChecked(p.id)).length
+// Unchecked items stay in place at top
+const uncheckedProducts = computed(() =>
+  applySort(products.value.filter(p => !sessionStore.isChecked(p.id)))
 )
+
+// Checked items in a separate collapsible section
+const checkedProducts = computed(() =>
+  applySort(products.value.filter(p => sessionStore.isChecked(p.id)))
+)
+
+const checkedCount = computed(() => checkedProducts.value.length)
 
 function handleDelete(id: string) {
   productsStore.deleteProduct(id)
@@ -52,22 +54,44 @@ function handleDelete(id: string) {
 
 <template>
   <section class="store-section">
-    <div v-if="sortedProducts.length === 0" class="empty-store">
+    <div v-if="products.length === 0" class="empty-store">
       <p>{{ i18n.t('store.empty') }}</p>
     </div>
 
-    <TransitionGroup name="sink" tag="div" class="product-list product-list-area">
+    <!-- Unchecked products — stable position, no reordering -->
+    <TransitionGroup name="row-enter" tag="div" class="product-list">
       <ProductRow
-        v-for="product in sortedProducts"
+        v-for="product in uncheckedProducts"
         :key="product.id"
         :product="product"
         @delete="handleDelete"
       />
     </TransitionGroup>
 
-    <p v-if="sortedProducts.length > 0 && checkedInStore === 0" class="store-hint">
+    <p v-if="products.length > 0 && checkedCount === 0" class="store-hint">
       {{ i18n.t('store.hint') }}
     </p>
+
+    <!-- Checked products — collapsible "Куплено" section -->
+    <template v-if="checkedCount > 0">
+      <div class="checked-section-header" @click="checkedExpanded = !checkedExpanded">
+        <span class="checked-section-label">✓ Куплено ({{ checkedCount }})</span>
+        <span class="checked-chevron" :class="{ open: checkedExpanded }">›</span>
+      </div>
+
+      <Transition name="expand">
+        <div v-if="checkedExpanded">
+          <TransitionGroup name="row-enter" tag="div" class="product-list">
+            <ProductRow
+              v-for="product in checkedProducts"
+              :key="product.id"
+              :product="product"
+              @delete="handleDelete"
+            />
+          </TransitionGroup>
+        </div>
+      </Transition>
+    </template>
   </section>
 </template>
 
@@ -80,30 +104,78 @@ function handleDelete(id: string) {
 
 .product-list {
   background: var(--card);
-  position: relative; /* needed for sink-leave-active: position absolute */
+  position: relative;
 }
 
-/* ── Sink transition ── */
-.sink-move {
-  transition: transform 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+/* Checked section header */
+.checked-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  min-height: 36px;
 }
 
-.sink-enter-active {
+.checked-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: 0.03em;
+}
+
+.checked-chevron {
+  font-size: 18px;
+  color: var(--muted);
+  transition: transform 200ms ease;
+  transform: rotate(0deg);
+}
+
+.checked-chevron.open {
+  transform: rotate(90deg);
+}
+
+/* Row enter animation (no reorder animation needed) */
+.row-enter-active {
   transition: opacity 200ms ease, transform 200ms ease;
 }
 
-.sink-enter-from {
+.row-enter-from {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-6px);
 }
 
-.sink-leave-active {
+.row-leave-active {
   transition: opacity 150ms ease;
   position: absolute;
   width: 100%;
 }
 
-.sink-leave-to {
+.row-leave-to {
+  opacity: 0;
+}
+
+/* Expand/collapse for checked section */
+.expand-enter-active {
+  transition: max-height 250ms ease, opacity 200ms ease;
+  max-height: 2000px;
+  overflow: hidden;
+}
+.expand-leave-active {
+  transition: max-height 200ms ease, opacity 150ms ease;
+  max-height: 2000px;
+  overflow: hidden;
+}
+.expand-enter-from {
+  max-height: 0;
+  opacity: 0;
+}
+.expand-leave-to {
+  max-height: 0;
   opacity: 0;
 }
 
@@ -123,9 +195,10 @@ function handleDelete(id: string) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sink-move,
-  .sink-enter-active,
-  .sink-leave-active {
+  .row-enter-active,
+  .row-leave-active,
+  .expand-enter-active,
+  .expand-leave-active {
     transition: none;
   }
 }
