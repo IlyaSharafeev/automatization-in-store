@@ -138,10 +138,12 @@ export const useAuthStore = defineStore('auth', () => {
     const { useSessionStore } = await import('./session')
     const { useHistoryStore } = await import('./history')
     const { useSettingsStore } = await import('./settings')
+    const { useStoresStore } = await import('./userStores')
     useProductsStore().resetToSeed()
     useSessionStore().clearCurrent()
     useHistoryStore().clearHistory()
     useSettingsStore().resetToDefaults()
+    useStoresStore().resetToDefaults()
 
     const rt = refreshToken.value
     user.value = null

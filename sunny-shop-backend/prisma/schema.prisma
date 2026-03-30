@@ -91,6 +91,7 @@ model UserSettings {
   sortMode             String  @default("default")
   activeStore          String  @default("zhanet")
   onboardingCompleted  Boolean @default(false)
+  storesConfig         String?
 
   updatedAt   DateTime @updatedAt
 }

@@ -6,6 +6,7 @@ import { useHistoryStore } from '@/stores/history'
 import { useProductsStore } from '@/stores/products'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
+import { useStoresStore } from '@/stores/userStores'
 import { maybeStartOnboarding } from '@/composables/useOnboarding'
 import { useTheme } from '@/composables/useTheme'
 import { useOnlineStatus } from '@/composables/useOnlineStatus'
@@ -19,6 +20,7 @@ const historyStore = useHistoryStore()
 const productsStore = useProductsStore()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
+const storesStore = useStoresStore()
 useTheme()
 
 const { isOnline } = useOnlineStatus()
@@ -43,6 +45,7 @@ onMounted(async () => {
       sessionStore.fetchFromServer(),
       historyStore.fetchFromServer(),
       settingsStore.fetchFromServer(),
+      storesStore.fetchFromServer(),
     ])
   }
 

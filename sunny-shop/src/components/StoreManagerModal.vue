@@ -151,22 +151,21 @@ function overlayClick(e: MouseEvent) {
           <span class="store-emoji">{{ store.emoji }}</span>
 
           <!-- Name -->
-          <div class="name-wrap">
+          <div class="name-wrap" @click="startEdit(store)">
             <input
               v-if="editingId === store.id"
               :ref="el => { if (el) editInputEl = el as HTMLInputElement }"
               v-model="editingName"
               class="name-input"
+              @click.stop
               @blur="commitEdit"
               @keyup.enter="commitEdit"
               @keyup.escape="cancelEdit"
             />
-            <span
-              v-else
-              class="name-text"
-              :class="{ hidden: !store.visible }"
-              @click="startEdit(store)"
-            >{{ store.name }}</span>
+            <template v-else>
+              <span class="name-text" :class="{ hidden: !store.visible }">{{ store.name }}</span>
+              <span class="edit-hint">✏️</span>
+            </template>
           </div>
 
           <!-- Visibility toggle -->
@@ -389,6 +388,10 @@ function overlayClick(e: MouseEvent) {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
 }
 
 .name-text {
@@ -405,6 +408,13 @@ function overlayClick(e: MouseEvent) {
 .name-text.hidden {
   color: var(--muted);
   text-decoration: line-through;
+}
+
+.edit-hint {
+  font-size: 13px;
+  opacity: 0.4;
+  flex-shrink: 0;
+  margin-left: 4px;
 }
 
 .name-input {

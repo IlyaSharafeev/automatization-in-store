@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import { useDebounceFn } from '@vueuse/core'
 import { useStorage } from '@/composables/useStorage'
+import { useApi } from '@/composables/useApi'
 
 export interface UserStore {
   id: string
@@ -31,19 +33,23 @@ export const EMOJI_OPTIONS = [
   '🥩', '🧴', '💊', '🍕', '🧺', '🏷️', '⭐', '🌻',
 ]
 
+function mergeWithDefaults(saved: UserStore[]): UserStore[] {
+  const ids = new Set(saved.map(s => s.id))
+  const maxPos = saved.reduce((m, s) => Math.max(m, s.position), -1)
+  const newDefaults = DEFAULT_STORES
+    .filter(d => !ids.has(d.id))
+    .map((d, i) => ({ ...d, position: maxPos + 1 + i }))
+  return [...saved, ...newDefaults]
+}
+
 export const useStoresStore = defineStore('userStores', () => {
   const storage = useStorage()
+  const api = useApi()
 
   function getInitial(): UserStore[] {
     const saved = storage.get<UserStore[]>('userStores')
     if (!saved) return DEFAULT_STORES.map(d => ({ ...d }))
-    // Merge: add any new default stores not yet in saved list
-    const ids = new Set(saved.map(s => s.id))
-    const maxPos = saved.reduce((m, s) => Math.max(m, s.position), -1)
-    const newDefaults = DEFAULT_STORES
-      .filter(d => !ids.has(d.id))
-      .map((d, i) => ({ ...d, position: maxPos + 1 + i }))
-    return [...saved, ...newDefaults]
+    return mergeWithDefaults(saved)
   }
 
   const stores = ref<UserStore[]>(getInitial())
@@ -60,29 +66,64 @@ export const useStoresStore = defineStore('userStores', () => {
     storage.set('userStores', stores.value)
   }
 
+  // ── Server sync (debounced 1.5s) ──────────────────────────────────
+  const syncToServer = useDebounceFn(async () => {
+    const { useAuthStore } = await import('./auth')
+    if (!useAuthStore().isLoggedIn) return
+    try {
+      await api.patch('/api/settings', {
+        storesConfig: JSON.stringify(stores.value),
+      })
+    } catch {
+      // offline — ignore
+    }
+  }, 1500)
+
+  async function fetchFromServer() {
+    try {
+      const data = await api.get<{ storesConfig?: string | null }>('/api/settings')
+      if (!data?.storesConfig) return
+
+      const parsed = JSON.parse(data.storesConfig) as UserStore[]
+      if (!Array.isArray(parsed) || parsed.length === 0) return
+
+      // Server is source of truth; also ensure new defaults are present
+      stores.value = mergeWithDefaults(parsed)
+      persist()
+    } catch {
+      // offline or malformed — ignore
+    }
+  }
+
+  function resetToDefaults() {
+    stores.value = DEFAULT_STORES.map(d => ({ ...d }))
+    storage.set('userStores', stores.value)
+  }
+
+  // ── Mutations (persist locally + schedule server sync) ────────────
   function toggleVisibility(id: string) {
     const s = stores.value.find(s => s.id === id)
-    if (s) { s.visible = !s.visible; persist() }
+    if (s) { s.visible = !s.visible; persist(); syncToServer() }
   }
 
   function rename(id: string, name: string) {
     const s = stores.value.find(s => s.id === id)
-    if (s && name.trim()) { s.name = name.trim(); persist() }
+    if (s && name.trim()) { s.name = name.trim(); persist(); syncToServer() }
   }
 
   function updateColor(id: string, color: string) {
     const s = stores.value.find(s => s.id === id)
-    if (s) { s.color = color; persist() }
+    if (s) { s.color = color; persist(); syncToServer() }
   }
 
   function updateEmoji(id: string, emoji: string) {
     const s = stores.value.find(s => s.id === id)
-    if (s) { s.emoji = emoji; persist() }
+    if (s) { s.emoji = emoji; persist(); syncToServer() }
   }
 
   function deleteStore(id: string) {
     const idx = stores.value.findIndex(s => s.id === id && !s.isDefault)
-    if (idx !== -1) { stores.value.splice(idx, 1); persist() }
+    if (idx !== -1) { stores.value.splice(idx, 1); persist(); syncToServer() }
   }
 
   function addStore(name: string, color: string, emoji: string): string {
@@ -98,6 +139,7 @@ export const useStoresStore = defineStore('userStores', () => {
       isDefault: false,
     })
     persist()
+    syncToServer()
     return id
   }
 
@@ -107,6 +149,7 @@ export const useStoresStore = defineStore('userStores', () => {
       if (s) s.position = idx
     })
     persist()
+    syncToServer()
   }
 
   function getById(id: string): UserStore | undefined {
@@ -125,5 +168,7 @@ export const useStoresStore = defineStore('userStores', () => {
     addStore,
     reorder,
     getById,
+    fetchFromServer,
+    resetToDefaults,
   }
 })
