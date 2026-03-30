@@ -80,6 +80,29 @@ function handleRepeat() {
   router.push('/')
 }
 
+function handleExportCsv() {
+  const rows: string[] = ['Дата,Магазин,Товар,Кількість,Одиниця,Ціна']
+  const date = formattedDate.value
+  for (const store of storesWithItems.value) {
+    for (const item of itemsForStore(store.id)) {
+      const name = getProductName(item.productId).replace(/,/g, ' ')
+      const unit = getProductUnit(item.productId)
+      const price = item.price != null ? item.price.toFixed(2) : '0.00'
+      rows.push(`"${date}","${store.name}","${name}",${item.quantity},"${unit}",${price}`)
+    }
+  }
+  const csv = rows.join('\n')
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `zakup-${props.session.date.slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 async function handleShare() {
   if (!cardEl.value) return
   isSharing.value = true
@@ -152,6 +175,9 @@ async function handleShare() {
         <div class="card-actions">
           <button class="repeat-btn" @click.stop="handleRepeat">
             🔁 {{ i18n.t('history.repeat') }}
+          </button>
+          <button class="share-btn-small" @click.stop="handleExportCsv" title="Завантажити CSV">
+            📥
           </button>
           <button class="share-btn-small" @click.stop="handleShare" :disabled="isSharing">
             {{ isSharing ? '⏳' : '📤' }}

@@ -23,6 +23,11 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/shared',
+      name: 'shared',
+      component: () => import('@/views/SharedListView.vue'),
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
