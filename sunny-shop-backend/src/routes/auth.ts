@@ -53,6 +53,14 @@ const logoutSchema = z.object({
   refreshToken: z.string().min(1),
 })
 
+const googleTokenSchema = z.object({
+  accessToken: z.string().min(1),
+})
+
+const setPasswordSchema = z.object({
+  password: z.string().min(8),
+})
+
 // POST /api/auth/register
 router.post('/register', validate(registerSchema), async (req: Request, res: Response): Promise<void> => {
   const { email, password, name } = req.body as z.infer<typeof registerSchema>
@@ -135,6 +143,68 @@ router.post('/google', validate(googleSchema), async (req: Request, res: Respons
   await ensureUserSettings(user.id)
   const tokens = await createAuthTokens(user.id)
   res.status(isNew ? 201 : 200).json({ user: toUserPublic(user), ...tokens, isNew })
+})
+
+// POST /api/auth/google-token (OAuth2 access_token, no FedCM)
+router.post('/google-token', validate(googleTokenSchema), async (req: Request, res: Response): Promise<void> => {
+  const { accessToken } = req.body as z.infer<typeof googleTokenSchema>
+
+  let googleUser: { sub: string; email?: string; name?: string; picture?: string }
+  try {
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!userInfoRes.ok) throw new Error('Failed to fetch user info')
+    googleUser = await userInfoRes.json() as { sub: string; email?: string; name?: string; picture?: string }
+    if (!googleUser.sub) throw new Error('No sub in user info')
+  } catch {
+    res.status(401).json({ error: 'Invalid Google token' })
+    return
+  }
+
+  let user = await prisma.user.findUnique({ where: { googleId: googleUser.sub } })
+  let isNew = false
+
+  if (!user) {
+    if (googleUser.email) {
+      user = await prisma.user.findUnique({ where: { email: googleUser.email } })
+      if (user) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { googleId: googleUser.sub, avatarUrl: googleUser.picture ?? user.avatarUrl },
+        })
+      }
+    }
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          googleId: googleUser.sub,
+          email: googleUser.email ?? null,
+          name: googleUser.name ?? null,
+          avatarUrl: googleUser.picture ?? null,
+        },
+      })
+      isNew = true
+    }
+  }
+
+  await ensureUserSettings(user.id)
+  const tokens = await createAuthTokens(user.id)
+  res.status(isNew ? 201 : 200).json({ user: toUserPublic(user), ...tokens, isNew })
+})
+
+// POST /api/auth/set-password
+router.post('/set-password', requireAuth, validate(setPasswordSchema), async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthRequest).userId!
+  const { password } = req.body as z.infer<typeof setPasswordSchema>
+
+  const passwordHash = await hashPassword(password)
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash },
+  })
+
+  res.json({ user: toUserPublic(user) })
 })
 
 // POST /api/auth/apple

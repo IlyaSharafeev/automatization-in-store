@@ -108,6 +108,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function setPassword(password: string) {
+    loading.value = true
+    try {
+      const data = await api.post<{ user: UserPublic }>('/api/auth/set-password', { password })
+      if (!data) throw new Error('Failed to set password')
+      setUser(data.user)
+      return data
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function logout() {
     // Clear all store state before invalidating tokens
     const { useProductsStore } = await import('./products')
@@ -148,5 +160,6 @@ export const useAuthStore = defineStore('auth', () => {
     loginWithGoogle,
     loginWithApple,
     logout,
+    setPassword,
   }
 })

@@ -27,6 +27,32 @@ const password = ref('')
 const name = ref('')
 const error = ref('')
 
+const newPassword = ref('')
+const newPasswordConfirm = ref('')
+const setPasswordError = ref('')
+const setPasswordSuccess = ref(false)
+
+async function onSetPassword() {
+  setPasswordError.value = ''
+  setPasswordSuccess.value = false
+  if (newPassword.value.length < 8) {
+    setPasswordError.value = 'Мінімум 8 символів'
+    return
+  }
+  if (newPassword.value !== newPasswordConfirm.value) {
+    setPasswordError.value = 'Паролі не збігаються'
+    return
+  }
+  try {
+    await authStore.setPassword(newPassword.value)
+    setPasswordSuccess.value = true
+    newPassword.value = ''
+    newPasswordConfirm.value = ''
+  } catch (e: any) {
+    setPasswordError.value = e.message || 'Помилка'
+  }
+}
+
 async function onSubmit() {
   error.value = ''
   try {
@@ -56,30 +82,39 @@ function switchTab(t: 'login' | 'register') {
   error.value = ''
 }
 
-async function handleGoogleCredential(response: any) {
+let googleTokenClient: any = null
+
+async function handleGoogleTokenResponse(tokenResponse: any) {
+  if (tokenResponse.error) {
+    error.value = 'Google помилка: ' + tokenResponse.error
+    return
+  }
   try {
     const data = await api.post<{ accessToken: string; refreshToken: string; user: any }>(
-      '/api/auth/google',
-      { idToken: response.credential }
+      '/api/auth/google-token',
+      { accessToken: tokenResponse.access_token }
     )
     if (data?.accessToken) {
       authStore.setTokens(data.accessToken, data.refreshToken)
       authStore.setUser(data.user)
+      await Promise.all([
+        productsStore.fetchFromServer(),
+        sessionStore.fetchFromServer(),
+        historyStore.fetchFromServer(),
+      ])
       router.push('/')
     }
-  } catch (e) {
-    console.error('Google login error:', e)
+  } catch (e: any) {
+    error.value = e.message || 'Google login failed'
   }
 }
 
 function handleGoogleLogin() {
-  if (window.google?.accounts?.id) {
-    window.google.accounts.id.prompt((notification: any) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        console.log('One tap not available:', notification.getNotDisplayedReason?.())
-      }
-    })
+  if (!googleTokenClient) {
+    error.value = 'Google не ініціалізовано'
+    return
   }
+  googleTokenClient.requestAccessToken({ prompt: 'select_account' })
 }
 
 onMounted(() => {
@@ -94,9 +129,10 @@ onMounted(() => {
   script.async = true
   script.defer = true
   script.onload = () => {
-    window.google.accounts.id.initialize({
+    googleTokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
-      callback: handleGoogleCredential,
+      scope: 'openid email profile',
+      callback: handleGoogleTokenResponse,
     })
   }
   document.head.appendChild(script)
@@ -118,6 +154,20 @@ function appleSignIn() {
       </div>
       <h2 class="login-title">{{ authStore.user?.name || 'Профіль' }}</h2>
       <p v-if="authStore.user?.email" class="login-sub">{{ authStore.user.email }}</p>
+
+      <!-- Set password for Google/Apple users -->
+      <div v-if="!authStore.user?.hasPassword" class="set-password-section">
+        <p class="set-password-hint">Встановіть пароль, щоб входити через email</p>
+        <form class="login-form" @submit.prevent="onSetPassword">
+          <input v-model="newPassword" type="password" placeholder="Новий пароль (мін. 8 символів)" class="login-input" autocomplete="new-password" />
+          <input v-model="newPasswordConfirm" type="password" placeholder="Повторіть пароль" class="login-input" autocomplete="new-password" />
+          <p v-if="setPasswordError" class="login-error">{{ setPasswordError }}</p>
+          <p v-if="setPasswordSuccess" class="set-password-ok">Пароль встановлено!</p>
+          <button type="submit" class="btn btn-primary" :disabled="authStore.loading">
+            {{ authStore.loading ? '...' : 'Встановити пароль' }}
+          </button>
+        </form>
+      </div>
 
       <button class="btn btn-danger" style="margin-top:20px" @click="onLogout">
         Вийти
@@ -376,7 +426,26 @@ function appleSignIn() {
   background: var(--border);
 }
 
-/* Google btn container — GSI renders a button inside */
+.set-password-section {
+  width: 100%;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.set-password-hint {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 12px;
+}
+.set-password-ok {
+  font-size: 13px;
+  color: var(--primary);
+  text-align: center;
+  margin-top: -4px;
+}
+
+
 .google-btn-manual {
   width: 100%;
   padding: 12px 16px;
