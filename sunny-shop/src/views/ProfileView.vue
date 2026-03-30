@@ -14,7 +14,6 @@ const productsStore = useProductsStore()
 const toast = useToast()
 const push = usePushNotifications()
 
-// ── Name editing ───────────────────────────────────────────────────
 const editingName = ref(false)
 const nameInput = ref(authStore.user?.name ?? '')
 const savingName = ref(false)
@@ -33,7 +32,6 @@ async function saveName() {
   }
 }
 
-// ── Password ───────────────────────────────────────────────────────
 const showPasswordForm = ref(false)
 const newPassword = ref('')
 const newPasswordConfirm = ref('')
@@ -57,19 +55,17 @@ async function onSetPassword() {
   }
 }
 
-// ── Logout ─────────────────────────────────────────────────────────
 async function onLogout() {
   await authStore.logout()
   router.push('/')
 }
 
-// ── Statistics ─────────────────────────────────────────────────────
 const sessions = computed(() => historyStore.sessions)
 
 const totalSessions = computed(() => sessions.value.length)
 
 const totalSpent = computed(() =>
-  sessions.value.reduce((sum, s) => sum + s.items.reduce((ss, i) => ss + (i.price ?? 0) * i.quantity, 0), 0)
+    sessions.value.reduce((sum, s) => sum + s.items.reduce((ss, i) => ss + (i.price ?? 0) * i.quantity, 0), 0)
 )
 
 const avgSessionCost = computed(() => {
@@ -79,7 +75,6 @@ const avgSessionCost = computed(() => {
   return total / withCost.length
 })
 
-// Monthly spending — last 6 months
 const monthlyData = computed(() => {
   const now = new Date()
   const months: { label: string; total: number }[] = []
@@ -90,11 +85,11 @@ const monthlyData = computed(() => {
     const month = d.getMonth()
     const label = d.toLocaleString('uk-UA', { month: 'short' })
     const total = sessions.value
-      .filter(s => {
-        const sd = new Date(s.date)
-        return sd.getFullYear() === year && sd.getMonth() === month
-      })
-      .reduce((sum, s) => sum + s.items.reduce((ss, i) => ss + (i.price ?? 0) * i.quantity, 0), 0)
+        .filter(s => {
+          const sd = new Date(s.date)
+          return sd.getFullYear() === year && sd.getMonth() === month
+        })
+        .reduce((sum, s) => sum + s.items.reduce((ss, i) => ss + (i.price ?? 0) * i.quantity, 0), 0)
     months.push({ label, total })
   }
   return months
@@ -102,7 +97,6 @@ const monthlyData = computed(() => {
 
 const chartMax = computed(() => Math.max(...monthlyData.value.map(m => m.total), 1))
 
-// Top products
 const topProducts = computed(() => {
   const counts = new Map<string, number>()
   for (const s of sessions.value) {
@@ -110,23 +104,26 @@ const topProducts = computed(() => {
       counts.set(item.productId, (counts.get(item.productId) ?? 0) + 1)
     }
   }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([id, count]) => ({
-      name: productsStore.products.find(p => p.id === id)?.name ?? id,
-      count,
-    }))
+  const topItems = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+  return topItems.map(([id, count]) => ({
+    name: productsStore.products.find(p => p.id === id)?.name ?? id,
+    count,
+  }))
 })
 
-// ── Push notifications ─────────────────────────────────────────────
 onMounted(() => push.checkSubscribed())
 
 const initials = computed(() => {
   const name = authStore.user?.name
   if (!name) return '?'
   const parts = name.trim().split(/\s+/)
-  if (parts.length >= 2) return (parts[0][0]! + parts[1][0]!).toUpperCase()
+  if (parts.length >= 2) {
+    const firstInitial = parts[0]?.[0] ?? ''
+    const secondInitial = parts[1]?.[0] ?? ''
+    return (firstInitial + secondInitial).toUpperCase()
+  }
   return name.slice(0, 2).toUpperCase()
 })
 </script>
@@ -141,7 +138,6 @@ const initials = computed(() => {
 
     <main class="content">
 
-      <!-- ── User info ── -->
       <div class="user-card">
         <div class="avatar-wrap">
           <img v-if="authStore.user?.avatarUrl" :src="authStore.user.avatarUrl" class="avatar-img" alt="avatar" />
@@ -155,12 +151,12 @@ const initials = computed(() => {
           </div>
           <div v-else class="name-edit-row">
             <input
-              v-model="nameInput"
-              class="name-input"
-              placeholder="Ваше ім'я"
-              @keyup.enter="saveName"
-              @keyup.escape="editingName = false"
-              autofocus
+                v-model="nameInput"
+                class="name-input"
+                placeholder="Ваше ім'я"
+                @keyup.enter="saveName"
+                @keyup.escape="editingName = false"
+                autofocus
             />
             <button class="save-btn" @click="saveName" :disabled="savingName">
               {{ savingName ? '...' : '✓' }}
@@ -175,7 +171,6 @@ const initials = computed(() => {
         </div>
       </div>
 
-      <!-- ── Statistics ── -->
       <div class="section" v-if="totalSessions > 0">
         <div class="section-title">📊 Статистика</div>
 
@@ -194,7 +189,6 @@ const initials = computed(() => {
           </div>
         </div>
 
-        <!-- Monthly spending chart -->
         <div class="chart-wrap" v-if="totalSpent > 0">
           <div class="chart-title">Витрати по місяцях (₴)</div>
           <div class="bar-chart">
@@ -202,8 +196,8 @@ const initials = computed(() => {
               <span class="bar-value" v-if="m.total > 0">{{ m.total.toFixed(0) }}</span>
               <div class="bar-track">
                 <div
-                  class="bar-fill"
-                  :style="{ height: m.total > 0 ? `${(m.total / chartMax) * 100}%` : '2px' }"
+                    class="bar-fill"
+                    :style="{ height: m.total > 0 ? `${(m.total / chartMax) * 100}%` : '2px' }"
                 />
               </div>
               <span class="bar-label">{{ m.label }}</span>
@@ -211,14 +205,13 @@ const initials = computed(() => {
           </div>
         </div>
 
-        <!-- Top products -->
         <div class="top-products" v-if="topProducts.length > 0">
           <div class="chart-title">Топ товарів</div>
           <div v-for="(p, i) in topProducts" :key="p.name" class="top-product-row">
             <span class="top-rank">{{ i + 1 }}</span>
             <span class="top-name">{{ p.name }}</span>
             <div class="top-bar-wrap">
-              <div class="top-bar-fill" :style="{ width: `${(p.count / (topProducts[0]?.count || 1)) * 100}%` }" />
+              <div class="top-bar-fill" :style="{ width: `${(p.count / (topProducts[0]?.count ?? 1)) * 100}%` }" />
             </div>
             <span class="top-count">{{ p.count }}×</span>
           </div>
@@ -230,7 +223,6 @@ const initials = computed(() => {
         <p class="empty-stats">Завершіть перший закуп, щоб побачити статистику</p>
       </div>
 
-      <!-- ── Push notifications ── -->
       <div class="section" v-if="push.isSupported">
         <div class="section-title">🔔 Сповіщення</div>
         <div class="push-row">
@@ -239,31 +231,30 @@ const initials = computed(() => {
             <span class="push-sub">{{ push.isSubscribed.value ? 'Увімкнено' : 'Вимкнено' }}</span>
           </div>
           <button
-            class="toggle-btn"
-            :class="{ active: push.isSubscribed.value }"
-            :disabled="push.isLoading.value"
-            @click="push.isSubscribed.value ? push.unsubscribe() : push.subscribe()"
+              class="toggle-btn"
+              :class="{ active: push.isSubscribed.value }"
+              :disabled="push.isLoading.value"
+              @click="push.isSubscribed.value ? push.unsubscribe() : push.subscribe()"
           >
             <span class="toggle-knob" />
           </button>
         </div>
         <button
-          v-if="push.isSubscribed.value"
-          class="test-push-btn"
-          @click="push.sendTest()"
+            v-if="push.isSubscribed.value"
+            class="test-push-btn"
+            @click="push.sendTest()"
         >
           Надіслати тестове сповіщення
         </button>
       </div>
 
-      <!-- ── Account ── -->
       <div class="section">
         <div class="section-title">🔐 Обліковий запис</div>
 
         <div v-if="!authStore.user?.hasPassword">
           <button
-            class="action-row-btn"
-            @click="showPasswordForm = !showPasswordForm"
+              class="action-row-btn"
+              @click="showPasswordForm = !showPasswordForm"
           >
             <span>Встановити пароль</span>
             <span class="chevron-right">›</span>
@@ -282,7 +273,6 @@ const initials = computed(() => {
         </div>
       </div>
 
-      <!-- ── Logout ── -->
       <div class="logout-section">
         <button class="btn-logout" @click="onLogout">Вийти з облікового запису</button>
       </div>
@@ -348,7 +338,6 @@ const initials = computed(() => {
   .content { margin-top: calc(64px + 60px); }
 }
 
-/* ── User card ── */
 .user-card {
   background: var(--card);
   border-radius: var(--radius);
@@ -474,7 +463,6 @@ const initials = computed(() => {
 .badge.google { background: #e8f5e9; color: #2e7d32; }
 .badge.password { background: #e3f2fd; color: #1565c0; }
 
-/* ── Sections ── */
 .section {
   background: var(--card);
   border-radius: var(--radius);
@@ -492,7 +480,6 @@ const initials = computed(() => {
   border-bottom: 1px solid var(--border);
 }
 
-/* ── Stats ── */
 .stats-grid {
   display: flex;
   padding: 16px;
@@ -583,7 +570,6 @@ const initials = computed(() => {
   text-align: center;
 }
 
-/* Top products */
 .top-products {
   padding: 12px 16px 16px;
   border-top: 1px solid var(--border);
@@ -643,7 +629,6 @@ const initials = computed(() => {
   text-align: center;
 }
 
-/* ── Push ── */
 .push-row {
   display: flex;
   align-items: center;
@@ -712,7 +697,6 @@ const initials = computed(() => {
   border-top: 1px solid var(--border);
 }
 
-/* ── Account ── */
 .action-row-btn {
   width: 100%;
   display: flex;
@@ -776,7 +760,6 @@ const initials = computed(() => {
   color: var(--primary);
 }
 
-/* ── Logout ── */
 .logout-section {
   padding: 8px 0 16px;
 }
