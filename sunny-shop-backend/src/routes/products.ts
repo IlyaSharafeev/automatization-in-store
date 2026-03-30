@@ -12,6 +12,7 @@ const productInputSchema = z.object({
   name: z.string().min(1),
   storeId: z.string().min(1),
   unit: z.string().min(1),
+  note: z.string().optional(),
   isCustom: z.boolean(),
   isReminder: z.boolean().optional(),
   isDeleted: z.boolean().optional(),

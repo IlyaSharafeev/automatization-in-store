@@ -11,6 +11,7 @@ import sessionRoutes from './routes/session'
 import historyRoutes from './routes/history'
 import settingsRoutes from './routes/settings'
 import pushRoutes from './routes/push'
+import statsRoutes from './routes/stats'
 import { errorHandler } from './middleware/errorHandler'
 
 const app = express()
@@ -73,6 +74,7 @@ app.use('/api/session', apiLimiter, sessionRoutes)
 app.use('/api/history', apiLimiter, historyRoutes)
 app.use('/api/settings', apiLimiter, settingsRoutes)
 app.use('/api/push', apiLimiter, pushRoutes)
+app.use('/api/stats', apiLimiter, statsRoutes)
 
 // Global error handler
 app.use(errorHandler)

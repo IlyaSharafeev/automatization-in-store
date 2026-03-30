@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useSwipe, onLongPress, useVibrate } from '@vueuse/core'
 import { animate } from 'motion'
 import { useSessionStore } from '@/stores/session'
+import { useProductsStore } from '@/stores/products'
 import { useI18nStore } from '@/stores/i18n'
 import { useSpringAnimate } from '@/composables/useSpringAnimate'
 import type { Product } from '@/stores/products'
@@ -17,6 +18,7 @@ const emit = defineEmits<{
 }>()
 
 const sessionStore = useSessionStore()
+const productsStore = useProductsStore()
 const i18n = useI18nStore()
 const { bounceCheck, bounceBtn, bounceQty, slideOutRow } = useSpringAnimate()
 const { vibrate } = useVibrate()
@@ -34,6 +36,29 @@ const sessionDeleteConfirming = ref(false)
 const showConfirm = ref(false)
 const offsetX = ref(0)
 const lastTap = ref(0)
+
+// ── Note ─────────────────────────────────────────────────────────
+const showNoteInput = ref(false)
+const noteValue = ref(props.product.note ?? '')
+const noteInputEl = ref<HTMLInputElement | null>(null)
+
+function toggleNote() {
+  showNoteInput.value = !showNoteInput.value
+  if (showNoteInput.value) {
+    noteValue.value = props.product.note ?? ''
+    nextTick(() => noteInputEl.value?.focus())
+  }
+}
+
+function saveNote() {
+  productsStore.updateNote(props.product.id, noteValue.value)
+  showNoteInput.value = false
+}
+
+function cancelNote() {
+  noteValue.value = props.product.note ?? ''
+  showNoteInput.value = false
+}
 
 const isChecked = computed(() => sessionStore.isChecked(props.product.id))
 const qty = computed(() => sessionStore.getQty(props.product.id))
@@ -233,7 +258,22 @@ function cancelDelete() {
         </div>
       </button>
 
-      <span class="product-name">{{ product.name }}</span>
+      <div class="name-col">
+        <span class="product-name">{{ product.name }}</span>
+        <span v-if="product.note && !showNoteInput" class="note-text">{{ product.note }}</span>
+        <div v-if="showNoteInput" class="note-input-row" @click.stop>
+          <input
+            ref="noteInputEl"
+            v-model="noteValue"
+            class="note-input"
+            placeholder="Нотатка..."
+            @keyup.enter="saveNote"
+            @keyup.escape="cancelNote"
+          />
+          <button class="note-save-btn" @click.stop="saveNote">✓</button>
+          <button class="note-cancel-btn" @click.stop="cancelNote">✕</button>
+        </div>
+      </div>
 
       <div v-if="isChecked && !product.isReminder" class="qty-price-group" @click.stop>
         <div class="qty-stepper">
@@ -255,6 +295,14 @@ function cancelDelete() {
           />
         </div>
       </div>
+
+      <button
+        v-if="!product.isReminder"
+        class="note-btn"
+        :class="{ 'has-note': !!product.note }"
+        :title="product.note ? 'Редагувати нотатку' : 'Додати нотатку'"
+        @click.stop="toggleNote"
+      >💬</button>
 
       <span class="unit">{{ product.isReminder ? '' : i18n.t(`unit.${product.unit}`) }}</span>
 
@@ -378,11 +426,95 @@ function cancelDelete() {
   will-change: opacity, transform;
 }
 
-.product-name {
+.name-col {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.product-name {
   font-size: 15px;
   line-height: 1.3;
   transition: color 200ms ease;
+}
+
+.note-text {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-input-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.note-input {
+  flex: 1;
+  height: 26px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  padding: 0 6px;
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  min-width: 0;
+}
+
+.note-save-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--primary);
+  color: white;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.note-cancel-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.note-btn {
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  opacity: 0.25;
+  flex-shrink: 0;
+  transition: opacity 150ms;
+}
+
+.note-btn.has-note {
+  opacity: 0.75;
+}
+
+.note-btn:active {
+  opacity: 1;
+  background: var(--bg);
 }
 
 .product-row.checked {
@@ -396,6 +528,10 @@ function cancelDelete() {
 
 .product-row:not(.checked) .product-name {
   color: var(--text);
+}
+
+.product-row.checked .note-text {
+  opacity: 0.6;
 }
 
 .qty-price-group {

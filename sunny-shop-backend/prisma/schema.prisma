@@ -45,6 +45,7 @@ model Product {
   name       String
   storeId    String
   unit       String
+  note       String?
   isCustom   Boolean  @default(false)
   isReminder Boolean  @default(false)
   isDeleted  Boolean  @default(false)

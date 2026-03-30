@@ -23,6 +23,7 @@ export interface Product {
   name: string
   storeId: StoreId
   unit: Unit
+  note?: string
   isCustom: boolean
   isReminder?: boolean
 }
@@ -174,6 +175,7 @@ export const useProductsStore = defineStore('products', () => {
       name: p.name,
       storeId: p.storeId,
       unit: p.unit,
+      note: p.note,
       isCustom: p.isCustom,
       isReminder: p.isReminder ?? false,
       isDeleted: false,
@@ -192,6 +194,7 @@ export const useProductsStore = defineStore('products', () => {
               name: sp.name,
               storeId: sp.storeId as StoreId,
               unit: sp.unit as Unit,
+              note: sp.note ?? undefined,
               isCustom: sp.isCustom,
               isReminder: sp.isReminder,
             })
@@ -221,6 +224,7 @@ export const useProductsStore = defineStore('products', () => {
             name: sp.name,
             storeId: sp.storeId as StoreId,
             unit: sp.unit as Unit,
+            note: sp.note ?? undefined,
             isCustom: sp.isCustom,
             isReminder: sp.isReminder,
           })
@@ -251,6 +255,15 @@ export const useProductsStore = defineStore('products', () => {
     }
   }
 
+  function updateNote(id: string, note: string) {
+    const p = products.value.find(p => p.id === id)
+    if (!p) return
+    p.note = note.trim() || undefined
+    touchProduct(id)
+    persist()
+    syncToServer()
+  }
+
   function resetToSeed() {
     products.value = [...SEED_PRODUCTS]
     updatedAtMap.value = {}
@@ -267,5 +280,5 @@ export const useProductsStore = defineStore('products', () => {
     return map
   })
 
-  return { products, addCustomProduct, deleteProduct, resetToSeed, productsByStore, fetchFromServer, syncToServer }
+  return { products, addCustomProduct, deleteProduct, updateNote, resetToSeed, productsByStore, fetchFromServer, syncToServer }
 })

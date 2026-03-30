@@ -2,17 +2,46 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useHistoryStore } from '@/stores/history'
-import { useProductsStore } from '@/stores/products'
+import { useStoresStore } from '@/stores/userStores'
 import { usePushNotifications } from '@/composables/usePushNotifications'
+import { useApi } from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const historyStore = useHistoryStore()
-const productsStore = useProductsStore()
+const storesStore = useStoresStore()
 const toast = useToast()
 const push = usePushNotifications()
+const api = useApi()
+
+interface Stats {
+  totalSessions: number
+  totalSpent: number
+  avgSessionCost: number
+  maxSession: number
+  byStore: { storeId: string; total: number; count: number }[]
+  byMonth: { label: string; total: number; count: number }[]
+  topByCount: { productClientId: string; name: string; times: number }[]
+  topByValue: { productClientId: string; name: string; total: number }[]
+}
+
+const stats = ref<Stats | null>(null)
+const statsLoading = ref(true)
+
+async function fetchStats() {
+  try {
+    const data = await api.get<Stats>('/api/stats')
+    if (data) stats.value = data
+  } catch {
+    // offline — ignore
+  } finally {
+    statsLoading.value = false
+  }
+}
+
+const chartMax = computed(() =>
+  Math.max(...(stats.value?.byMonth.map(m => m.total) ?? []), 1)
+)
 
 const editingName = ref(false)
 const nameInput = ref(authStore.user?.name ?? '')
@@ -60,60 +89,10 @@ async function onLogout() {
   router.push('/')
 }
 
-const sessions = computed(() => historyStore.sessions)
-
-const totalSessions = computed(() => sessions.value.length)
-
-const totalSpent = computed(() =>
-    sessions.value.reduce((sum, s) => sum + s.items.reduce((ss, i) => ss + (i.price ?? 0) * i.quantity, 0), 0)
-)
-
-const avgSessionCost = computed(() => {
-  const withCost = sessions.value.filter(s => s.items.some(i => (i.price ?? 0) > 0))
-  if (!withCost.length) return 0
-  const total = withCost.reduce((sum, s) => sum + s.items.reduce((ss, i) => ss + (i.price ?? 0) * i.quantity, 0), 0)
-  return total / withCost.length
+onMounted(() => {
+  push.checkSubscribed()
+  fetchStats()
 })
-
-const monthlyData = computed(() => {
-  const now = new Date()
-  const months: { label: string; total: number }[] = []
-
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const year = d.getFullYear()
-    const month = d.getMonth()
-    const label = d.toLocaleString('uk-UA', { month: 'short' })
-    const total = sessions.value
-        .filter(s => {
-          const sd = new Date(s.date)
-          return sd.getFullYear() === year && sd.getMonth() === month
-        })
-        .reduce((sum, s) => sum + s.items.reduce((ss, i) => ss + (i.price ?? 0) * i.quantity, 0), 0)
-    months.push({ label, total })
-  }
-  return months
-})
-
-const chartMax = computed(() => Math.max(...monthlyData.value.map(m => m.total), 1))
-
-const topProducts = computed(() => {
-  const counts = new Map<string, number>()
-  for (const s of sessions.value) {
-    for (const item of s.items) {
-      counts.set(item.productId, (counts.get(item.productId) ?? 0) + 1)
-    }
-  }
-  const topItems = [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-  return topItems.map(([id, count]) => ({
-    name: productsStore.products.find(p => p.id === id)?.name ?? id,
-    count,
-  }))
-})
-
-onMounted(() => push.checkSubscribed())
 
 const initials = computed(() => {
   const name = authStore.user?.name
@@ -171,56 +150,112 @@ const initials = computed(() => {
         </div>
       </div>
 
-      <div class="section" v-if="totalSessions > 0">
+      <div class="section">
         <div class="section-title">📊 Статистика</div>
 
-        <div class="stats-grid">
-          <div class="stat-box">
-            <span class="stat-value">{{ totalSessions }}</span>
-            <span class="stat-label">закупів</span>
+        <!-- Loading skeleton -->
+        <div v-if="statsLoading" class="stats-skeleton">
+          <div class="skel-grid">
+            <div class="skel-box" v-for="n in 4" :key="n" />
           </div>
-          <div class="stat-box">
-            <span class="stat-value">₴{{ totalSpent.toFixed(0) }}</span>
-            <span class="stat-label">всього</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-value">₴{{ avgSessionCost.toFixed(0) }}</span>
-            <span class="stat-label">середній закуп</span>
-          </div>
+          <div class="skel-chart" />
         </div>
 
-        <div class="chart-wrap" v-if="totalSpent > 0">
-          <div class="chart-title">Витрати по місяцях (₴)</div>
-          <div class="bar-chart">
-            <div v-for="m in monthlyData" :key="m.label" class="bar-col">
-              <span class="bar-value" v-if="m.total > 0">{{ m.total.toFixed(0) }}</span>
-              <div class="bar-track">
-                <div
+        <!-- Empty state -->
+        <p v-else-if="!stats || stats.totalSessions === 0" class="empty-stats">
+          Завершіть перший закуп, щоб побачити статистику
+        </p>
+
+        <!-- Stats -->
+        <template v-else>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-value">{{ stats.totalSessions }}</span>
+              <span class="stat-label">закупів</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value">₴{{ stats.totalSpent.toFixed(0) }}</span>
+              <span class="stat-label">всього</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value">₴{{ stats.avgSessionCost.toFixed(0) }}</span>
+              <span class="stat-label">середній</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value">₴{{ stats.maxSession.toFixed(0) }}</span>
+              <span class="stat-label">рекорд</span>
+            </div>
+          </div>
+
+          <!-- By store -->
+          <div class="chart-wrap" v-if="stats.byStore.length > 0">
+            <div class="chart-title">По магазинах</div>
+            <div class="store-bars">
+              <div v-for="s in stats.byStore" :key="s.storeId" class="store-bar-row">
+                <span class="store-bar-label">
+                  <span
+                    class="store-dot"
+                    :style="{ background: storesStore.getById(s.storeId)?.color ?? '#aaa' }"
+                  />
+                  {{ storesStore.getById(s.storeId)?.name ?? s.storeId }}
+                </span>
+                <div class="store-bar-track">
+                  <div
+                    class="store-bar-fill"
+                    :style="{
+                      width: `${(s.total / (stats.byStore[0]?.total ?? 1)) * 100}%`,
+                      background: storesStore.getById(s.storeId)?.color ?? 'var(--primary)'
+                    }"
+                  />
+                </div>
+                <span class="store-bar-amount">₴{{ s.total.toFixed(0) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Monthly chart -->
+          <div class="chart-wrap" v-if="stats.totalSpent > 0">
+            <div class="chart-title">Витрати по місяцях (₴)</div>
+            <div class="bar-chart">
+              <div v-for="m in stats.byMonth" :key="m.label" class="bar-col">
+                <span class="bar-value" v-if="m.total > 0">{{ m.total.toFixed(0) }}</span>
+                <div class="bar-track">
+                  <div
                     class="bar-fill"
                     :style="{ height: m.total > 0 ? `${(m.total / chartMax) * 100}%` : '2px' }"
-                />
+                  />
+                </div>
+                <span class="bar-label">{{ m.label }}</span>
               </div>
-              <span class="bar-label">{{ m.label }}</span>
             </div>
           </div>
-        </div>
 
-        <div class="top-products" v-if="topProducts.length > 0">
-          <div class="chart-title">Топ товарів</div>
-          <div v-for="(p, i) in topProducts" :key="p.name" class="top-product-row">
-            <span class="top-rank">{{ i + 1 }}</span>
-            <span class="top-name">{{ p.name }}</span>
-            <div class="top-bar-wrap">
-              <div class="top-bar-fill" :style="{ width: `${(p.count / (topProducts[0]?.count ?? 1)) * 100}%` }" />
+          <!-- Top by frequency -->
+          <div class="top-products" v-if="stats.topByCount.length > 0">
+            <div class="chart-title">Найчастіші товари</div>
+            <div v-for="(p, i) in stats.topByCount" :key="p.productClientId" class="top-product-row">
+              <span class="top-rank">{{ i + 1 }}</span>
+              <span class="top-name">{{ p.name }}</span>
+              <div class="top-bar-wrap">
+                <div class="top-bar-fill" :style="{ width: `${(p.times / (stats.topByCount[0]?.times ?? 1)) * 100}%` }" />
+              </div>
+              <span class="top-count">{{ p.times }}×</span>
             </div>
-            <span class="top-count">{{ p.count }}×</span>
           </div>
-        </div>
-      </div>
 
-      <div class="section" v-else>
-        <div class="section-title">📊 Статистика</div>
-        <p class="empty-stats">Завершіть перший закуп, щоб побачити статистику</p>
+          <!-- Top by value -->
+          <div class="top-products" v-if="stats.topByValue.length > 0" style="border-top: 1px solid var(--border);">
+            <div class="chart-title">Найдорожчі товари</div>
+            <div v-for="(p, i) in stats.topByValue" :key="p.productClientId" class="top-product-row">
+              <span class="top-rank">{{ i + 1 }}</span>
+              <span class="top-name">{{ p.name }}</span>
+              <div class="top-bar-wrap">
+                <div class="top-bar-fill top-bar-fill--value" :style="{ width: `${(p.total / (stats.topByValue[0]?.total ?? 1)) * 100}%` }" />
+              </div>
+              <span class="top-count">₴{{ p.total.toFixed(0) }}</span>
+            </div>
+          </div>
+        </template>
       </div>
 
       <div class="section" v-if="push.isSupported">
@@ -620,6 +655,97 @@ const initials = computed(() => {
   color: var(--muted);
   min-width: 28px;
   text-align: right;
+}
+
+/* Loading skeleton */
+.stats-skeleton {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skel-grid {
+  display: flex;
+  gap: 8px;
+}
+
+.skel-box {
+  flex: 1;
+  height: 64px;
+  background: var(--bg);
+  border-radius: 10px;
+  animation: skel-pulse 1.4s ease-in-out infinite;
+}
+
+.skel-chart {
+  height: 120px;
+  background: var(--bg);
+  border-radius: 10px;
+  animation: skel-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skel-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Store bars */
+.store-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.store-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.store-bar-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text);
+  min-width: 80px;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.store-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.store-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 400ms ease;
+}
+
+.store-bar-amount {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 52px;
+  text-align: right;
+}
+
+.top-bar-fill--value {
+  background: #f59e0b;
 }
 
 .empty-stats {

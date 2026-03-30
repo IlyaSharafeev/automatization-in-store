@@ -5,6 +5,7 @@ export interface ProductInput {
   name: string
   storeId: string
   unit: string
+  note?: string
   isCustom: boolean
   isReminder?: boolean
   isDeleted?: boolean
@@ -25,6 +26,7 @@ export async function syncProducts(userId: string, products: ProductInput[]) {
             name: p.name,
             storeId: p.storeId,
             unit: p.unit,
+            note: p.note ?? null,
             isCustom: p.isCustom,
             isReminder: p.isReminder ?? false,
             isDeleted: p.isDeleted ?? false,
@@ -39,6 +41,7 @@ export async function syncProducts(userId: string, products: ProductInput[]) {
           name: p.name,
           storeId: p.storeId,
           unit: p.unit,
+          note: p.note ?? null,
           isCustom: p.isCustom,
           isReminder: p.isReminder ?? false,
           isDeleted: p.isDeleted ?? false,
