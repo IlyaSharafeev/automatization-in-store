@@ -234,7 +234,7 @@ watch(shakeDetected, (v) => {
         <button class="icon-btn" @click="openSearch" :aria-label="i18n.t('search.placeholder')">🔍</button>
         <button class="icon-btn" @click="isThemeOpen = !isThemeOpen" :aria-label="i18n.t('theme.title')">🎨</button>
         <LangToggle />
-        <ProfileAvatar />
+        <ProfileAvatar id="onb-profile-avatar" />
       </div>
       <ThemePanel :is-open="isThemeOpen" @close="isThemeOpen = false" />
     </header>
@@ -319,7 +319,7 @@ watch(shakeDetected, (v) => {
       </div>
 
       <!-- Normal store tab content -->
-      <div v-else ref="storeContentEl" class="store-content store-tabs-content">
+      <div v-else id="onb-store-content" ref="storeContentEl" class="store-content store-tabs-content">
         <StoreSection ref="storeSectionRef" :key="activeStoreId" :store="activeStore" :sort-mode="sortMode" />
       </div>
     </main>
@@ -336,6 +336,7 @@ watch(shakeDetected, (v) => {
 
       <div class="center-info">
         <button
+          id="onb-count-pill"
           ref="countBadgeEl"
           class="count-pill"
           style="will-change: transform;"

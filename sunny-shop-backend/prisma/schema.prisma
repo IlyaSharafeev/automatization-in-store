@@ -85,11 +85,12 @@ model UserSettings {
   userId      String  @unique
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  locale      String  @default("uk")
-  accentColor String  @default("#4CAF50")
-  colorScheme String  @default("light")
-  sortMode    String  @default("default")
-  activeStore String  @default("zhanet")
+  locale               String  @default("uk")
+  accentColor          String  @default("#4CAF50")
+  colorScheme          String  @default("light")
+  sortMode             String  @default("default")
+  activeStore          String  @default("zhanet")
+  onboardingCompleted  Boolean @default(false)
 
   updatedAt   DateTime @updatedAt
 }

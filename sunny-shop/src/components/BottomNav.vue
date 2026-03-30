@@ -21,6 +21,7 @@ const sessionStore = useSessionStore()
     </button>
 
     <button
+      id="onb-nav-shopping"
       class="nav-tab"
       :class="{ active: route.path === '/shopping' }"
       @click="router.push('/shopping')"
@@ -33,6 +34,7 @@ const sessionStore = useSessionStore()
     </button>
 
     <button
+      id="onb-nav-history"
       class="nav-tab"
       :class="{ active: route.path === '/history' }"
       @click="router.push('/history')"

@@ -18,6 +18,7 @@ export const useSettingsStore = defineStore('settings', () => {
     (storage.get<string>('sortMode') as 'default' | 'alpha' | 'frequency') ?? 'default'
   )
   const activeStore = ref<string>(storage.get<string>('activeStore') ?? 'zhanet')
+  const onboardingCompleted = ref<boolean>(storage.get<boolean>('onboardingCompleted') ?? false)
 
   const syncToServer = useDebounceFn(async () => {
     const { useAuthStore } = await import('./auth')
@@ -32,6 +33,7 @@ export const useSettingsStore = defineStore('settings', () => {
         colorScheme: themeColorScheme.value,
         sortMode: sortMode.value,
         activeStore: activeStore.value,
+        onboardingCompleted: onboardingCompleted.value,
       })
     } catch {
       // offline — ignore
@@ -63,17 +65,29 @@ export const useSettingsStore = defineStore('settings', () => {
         activeStore.value = data.activeStore
         storage.set('activeStore', data.activeStore)
       }
+      if (data.onboardingCompleted !== undefined) {
+        onboardingCompleted.value = data.onboardingCompleted
+        storage.set('onboardingCompleted', data.onboardingCompleted)
+      }
     } catch {
       // offline — ignore
     }
   }
 
+  function completeOnboarding() {
+    onboardingCompleted.value = true
+    storage.set('onboardingCompleted', true)
+    syncToServer()
+  }
+
   function resetToDefaults() {
     sortMode.value = 'default'
     activeStore.value = 'zhanet'
+    onboardingCompleted.value = false
     storage.set('sortMode', 'default')
     storage.set('activeStore', 'zhanet')
+    storage.set('onboardingCompleted', false)
   }
 
-  return { sortMode, activeStore, fetchFromServer, syncToServer, resetToDefaults }
+  return { sortMode, activeStore, onboardingCompleted, completeOnboarding, fetchFromServer, syncToServer, resetToDefaults }
 })

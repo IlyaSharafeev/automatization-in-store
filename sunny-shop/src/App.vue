@@ -6,6 +6,7 @@ import { useHistoryStore } from '@/stores/history'
 import { useProductsStore } from '@/stores/products'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
+import { maybeStartOnboarding } from '@/composables/useOnboarding'
 import { useTheme } from '@/composables/useTheme'
 import { useOnlineStatus } from '@/composables/useOnlineStatus'
 import { useToast } from '@/composables/useToast'
@@ -44,6 +45,9 @@ onMounted(async () => {
       settingsStore.fetchFromServer(),
     ])
   }
+
+  // Start onboarding for new users
+  maybeStartOnboarding()
 
   // Pre-check frequent items if session is empty
   if (sessionStore.checkedCount === 0) {

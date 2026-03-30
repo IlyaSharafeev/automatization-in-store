@@ -13,6 +13,7 @@ const patchSettingsSchema = z.object({
   colorScheme: z.string().optional(),
   sortMode: z.string().optional(),
   activeStore: z.string().optional(),
+  onboardingCompleted: z.boolean().optional(),
 })
 
 // GET /api/settings

@@ -13,6 +13,7 @@
   "dependencies": {
     "@vueuse/core": "^14.2.1",
     "canvas-confetti": "^1.9.4",
+    "driver.js": "^1.4.0",
     "html2canvas": "^1.4.1",
     "motion": "^12.38.0",
     "pinia": "^3.0.4",
