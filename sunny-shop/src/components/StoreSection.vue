@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useProductsStore, type Store, type Product } from '@/stores/products'
 import { useSessionStore } from '@/stores/session'
 import { useHistoryStore } from '@/stores/history'
@@ -17,6 +17,7 @@ const historyStore = useHistoryStore()
 const i18n = useI18nStore()
 
 const checkedExpanded = ref(true)
+const checkedHeaderEl = ref<HTMLElement>()
 
 const products = computed(() => productsStore.productsByStore.get(props.store.id) ?? [])
 
@@ -50,6 +51,15 @@ const checkedCount = computed(() => checkedProducts.value.length)
 function handleDelete(id: string) {
   productsStore.deleteProduct(id)
 }
+
+async function scrollToChecked() {
+  if (checkedCount.value === 0) return
+  checkedExpanded.value = true
+  await nextTick()
+  checkedHeaderEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+defineExpose({ scrollToChecked })
 </script>
 
 <template>
@@ -74,7 +84,7 @@ function handleDelete(id: string) {
 
     <!-- Checked products — collapsible "Куплено" section -->
     <template v-if="checkedCount > 0">
-      <div class="checked-section-header" @click="checkedExpanded = !checkedExpanded">
+      <div ref="checkedHeaderEl" class="checked-section-header" @click="checkedExpanded = !checkedExpanded">
         <span class="checked-section-label">✓ Куплено ({{ checkedCount }})</span>
         <span class="checked-chevron" :class="{ open: checkedExpanded }">›</span>
       </div>

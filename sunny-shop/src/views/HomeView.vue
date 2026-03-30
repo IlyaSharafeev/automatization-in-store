@@ -49,6 +49,11 @@ const tabsEl = ref<HTMLElement>()
 const storeContentEl = ref<HTMLElement>()
 const countBadgeEl = ref<HTMLElement>()
 const fabEl = ref<HTMLButtonElement>()
+const storeSectionRef = ref<InstanceType<typeof StoreSection>>()
+
+function scrollToChecked() {
+  storeSectionRef.value?.scrollToChecked()
+}
 
 // ── FAB ───────────────────────────────────────────────────────────
 const isAddModalOpen = ref(false)
@@ -315,7 +320,7 @@ watch(shakeDetected, (v) => {
 
       <!-- Normal store tab content -->
       <div v-else ref="storeContentEl" class="store-content store-tabs-content">
-        <StoreSection :key="activeStoreId" :store="activeStore" :sort-mode="sortMode" />
+        <StoreSection ref="storeSectionRef" :key="activeStoreId" :store="activeStore" :sort-mode="sortMode" />
       </div>
     </main>
 
@@ -330,9 +335,15 @@ watch(shakeDetected, (v) => {
       </button>
 
       <div class="center-info">
-        <span ref="countBadgeEl" class="count-pill" style="will-change: transform;">
+        <button
+          ref="countBadgeEl"
+          class="count-pill"
+          style="will-change: transform;"
+          :title="sessionStore.checkedCount > 0 ? 'Перейти до відмічених' : ''"
+          @click="scrollToChecked"
+        >
           {{ i18n.t('home.selected', { n: sessionStore.checkedCount }) }}
-        </span>
+        </button>
         <span v-if="sessionStore.totalCost > 0" class="total-cost">
           ₴ {{ sessionStore.totalCost.toFixed(2) }}
         </span>
