@@ -261,11 +261,8 @@ onMounted(() => {
   }
 })
 
-async function openShare() {
+function openShare() {
   showShareModal.value = true
-  if (!shareSession.isOwner.value && !shareSession.isActive.value) {
-    await startSharing()
-  }
 }
 
 async function startSharing() {
