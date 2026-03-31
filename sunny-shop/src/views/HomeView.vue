@@ -321,7 +321,7 @@ function closeShareModal() {
 // Session actions — go through WS when in shared mode
 function handleToggle(productId: string) {
   if (sessionStore.isSharedMode) {
-    const price = sessionStore.getPrice.value(productId)
+    const price = sessionStore.getPrice(productId)
     shareSession.toggle(productId, price)
   } else {
     sessionStore.toggle(productId)

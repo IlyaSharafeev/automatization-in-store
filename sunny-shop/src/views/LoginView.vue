@@ -33,10 +33,11 @@ const errors = ref({
   email: '',
   password: '',
   confirmPassword: '',
+  general: '',
 })
 
 function clearErrors() {
-  errors.value = { name: '', email: '', password: '', confirmPassword: '' }
+  errors.value = { name: '', email: '', password: '', confirmPassword: '', general: '' }
   serverError.value = ''
 }
 
@@ -134,7 +135,7 @@ let googleTokenClient: any = null
 
 async function handleGoogleTokenResponse(tokenResponse: any) {
   if (tokenResponse.error) {
-    error.value = 'Google помилка: ' + tokenResponse.error
+    errors.value.general = 'Google помилка: ' + tokenResponse.error
     return
   }
   try {
@@ -153,13 +154,13 @@ async function handleGoogleTokenResponse(tokenResponse: any) {
       router.push('/')
     }
   } catch (e: any) {
-    error.value = e.message || 'Google login failed'
+    errors.value.general = e.message || 'Google login failed'
   }
 }
 
 function handleGoogleLogin() {
   if (!googleTokenClient) {
-    error.value = 'Google не ініціалізовано'
+    errors.value.general = 'Google не ініціалізовано'
     return
   }
   googleTokenClient.requestAccessToken({ prompt: 'select_account' })
