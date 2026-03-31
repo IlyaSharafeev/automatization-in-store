@@ -94,6 +94,7 @@ export function useShareSession() {
       toggle: (productId, price) => send({ type: 'TOGGLE', productClientId: productId, price }),
       setQty: (productId, qty) => send({ type: 'SET_QTY', productClientId: productId, qty }),
       setPrice: (productId, price) => send({ type: 'SET_PRICE', productClientId: productId, price }),
+      clear: () => send({ type: 'CLEAR' }),
     })
 
     socket.onopen = () => {

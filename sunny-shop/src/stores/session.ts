@@ -13,6 +13,7 @@ type WsHandlers = {
   toggle: (productId: string, price: number) => void
   setQty: (productId: string, qty: number) => void
   setPrice: (productId: string, price: number) => void
+  clear: () => void
 }
 let _wsHandlers: WsHandlers | null = null
 
@@ -120,6 +121,10 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function clearCurrent() {
+    if (_wsHandlers) {
+      _wsHandlers.clear()
+      return
+    }
     checkedItems.value = []
     persist()
     syncToServer()

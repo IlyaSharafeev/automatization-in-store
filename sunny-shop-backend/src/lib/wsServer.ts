@@ -175,6 +175,13 @@ export function setupWsServer(server: Server) {
             if (item) {
               await prisma.sessionItem.update({ where: { id: item.id }, data: { price: msg.price } })
             }
+          } else if (msg.type === 'CLEAR') {
+            const session = await prisma.shoppingSession.findFirst({
+              where: { userId: ownerId, clientId: 'current' },
+            })
+            if (session) {
+              await prisma.sessionItem.deleteMany({ where: { sessionId: session.id } })
+            }
           } else {
             return // unknown message type
           }
