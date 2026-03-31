@@ -8,6 +8,18 @@ import { useSyncStatus } from '@/composables/useSyncStatus'
 
 const { setSyncing, setSynced, setError } = useSyncStatus()
 
+// WS handlers set by useShareSession when connected
+type WsHandlers = {
+  toggle: (productId: string, price: number) => void
+  setQty: (productId: string, qty: number) => void
+  setPrice: (productId: string, price: number) => void
+}
+let _wsHandlers: WsHandlers | null = null
+
+export function setSessionWsHandlers(h: WsHandlers | null) {
+  _wsHandlers = h
+}
+
 export const useSessionStore = defineStore('session', () => {
   const storage = useStorage()
   const api = useApi()
@@ -49,16 +61,12 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  function updatePrice(productId: string, price: number) {
-    const item = checkedItems.value.find(i => i.productId === productId)
-    if (item) {
-      item.price = price >= 0 ? price : 0
-      persist()
-      syncToServer()
-    }
-  }
-
   function toggle(productId: string) {
+    if (_wsHandlers) {
+      const price = checkedItems.value.find(i => i.productId === productId)?.price ?? 0
+      _wsHandlers.toggle(productId, price)
+      return
+    }
     const idx = checkedItems.value.findIndex(i => i.productId === productId)
     if (idx === -1) {
       checkedItems.value.push({ productId, quantity: 1 })
@@ -70,6 +78,10 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function updateQty(productId: string, quantity: number) {
+    if (_wsHandlers) {
+      _wsHandlers.setQty(productId, quantity)
+      return
+    }
     const idx = checkedItems.value.findIndex(i => i.productId === productId)
     if (quantity <= 0) {
       if (idx !== -1) checkedItems.value.splice(idx, 1)
@@ -79,6 +91,19 @@ export const useSessionStore = defineStore('session', () => {
     }
     persist()
     syncToServer()
+  }
+
+  function updatePrice(productId: string, price: number) {
+    if (_wsHandlers) {
+      _wsHandlers.setPrice(productId, price)
+      return
+    }
+    const item = checkedItems.value.find(i => i.productId === productId)
+    if (item) {
+      item.price = price >= 0 ? price : 0
+      persist()
+      syncToServer()
+    }
   }
 
   function finishSession() {

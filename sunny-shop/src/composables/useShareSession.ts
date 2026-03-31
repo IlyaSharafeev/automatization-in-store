@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue'
+import { setSessionWsHandlers } from '@/stores/session'
 
 const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '')
+const WS_URL = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://')
 
 async function apiRequest<T>(method: string, path: string, body?: object): Promise<T> {
   const token = localStorage.getItem('accessToken')
@@ -30,13 +32,13 @@ export interface Participant {
   isOwner: boolean
 }
 
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '')
-const WS_URL = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://')
-
 // Singleton state
 const isActive = ref(false)
 const isOwner = ref(false)
-const shareCode = ref('')
+const shareCode = ref(localStorage.getItem('shareCode') ?? '')
+const shareRole = ref<'owner' | 'guest' | ''>(
+  (localStorage.getItem('shareRole') as 'owner' | 'guest' | '') ?? ''
+)
 const ownerName = ref('')
 const participants = ref<Participant[]>([])
 const items = ref<SharedItem[]>([])
@@ -45,6 +47,16 @@ const error = ref('')
 
 type OnUpdateCallback = (items: SharedItem[]) => void
 let onUpdate: OnUpdateCallback | null = null
+
+function persistShare(code: string, role: 'owner' | 'guest') {
+  localStorage.setItem('shareCode', code)
+  localStorage.setItem('shareRole', role)
+}
+
+function clearSharePersist() {
+  localStorage.removeItem('shareCode')
+  localStorage.removeItem('shareRole')
+}
 
 export function useShareSession() {
   const participantCount = computed(() => participants.value.length + 1)
@@ -60,16 +72,29 @@ export function useShareSession() {
     return apiRequest<{ ownerName: string }>('GET', `/api/share/${code}`)
   }
 
-  function connect(code: string, callbacks?: { onUpdate?: OnUpdateCallback }) {
+  function connect(code: string, role: 'owner' | 'guest', callbacks?: { onUpdate?: OnUpdateCallback }) {
     if (callbacks?.onUpdate) onUpdate = callbacks.onUpdate
 
     const token = localStorage.getItem('accessToken')
     if (!token) { error.value = 'Not authenticated'; return }
 
+    // Close existing connection
+    ws.value?.close()
+
     const url = `${WS_URL}/ws?shareCode=${code}&token=${token}`
     const socket = new WebSocket(url)
     ws.value = socket
     shareCode.value = code
+    shareRole.value = role
+    isOwner.value = role === 'owner'
+    persistShare(code, role)
+
+    // Set WS handlers so sessionStore routes through WS
+    setSessionWsHandlers({
+      toggle: (productId, price) => send({ type: 'TOGGLE', productClientId: productId, price }),
+      setQty: (productId, qty) => send({ type: 'SET_QTY', productClientId: productId, qty }),
+      setPrice: (productId, price) => send({ type: 'SET_PRICE', productClientId: productId, price }),
+    })
 
     socket.onopen = () => {
       isActive.value = true
@@ -103,6 +128,7 @@ export function useShareSession() {
     socket.onclose = () => {
       isActive.value = false
       participants.value = []
+      setSessionWsHandlers(null)
     }
   }
 
@@ -112,28 +138,19 @@ export function useShareSession() {
     isActive.value = false
     isOwner.value = false
     shareCode.value = ''
+    shareRole.value = ''
     ownerName.value = ''
     participants.value = []
     items.value = []
     onUpdate = null
+    setSessionWsHandlers(null)
+    clearSharePersist()
   }
 
   function send(msg: object) {
     if (ws.value?.readyState === WebSocket.OPEN) {
       ws.value.send(JSON.stringify(msg))
     }
-  }
-
-  function toggle(productClientId: string, price: number) {
-    send({ type: 'TOGGLE', productClientId, price })
-  }
-
-  function setQty(productClientId: string, qty: number) {
-    send({ type: 'SET_QTY', productClientId, qty })
-  }
-
-  function setPrice(productClientId: string, price: number) {
-    send({ type: 'SET_PRICE', productClientId, price })
   }
 
   async function revokeShare() {
@@ -145,10 +162,27 @@ export function useShareSession() {
     return `${window.location.origin}/?share=${code}`
   }
 
+  // Restore connection after page refresh
+  async function tryReconnect(callbacks: { onUpdate: OnUpdateCallback }): Promise<boolean> {
+    const savedCode = localStorage.getItem('shareCode')
+    const savedRole = localStorage.getItem('shareRole') as 'owner' | 'guest' | null
+    if (!savedCode || !savedRole) return false
+
+    try {
+      await validateCode(savedCode)
+      connect(savedCode, savedRole, callbacks)
+      return true
+    } catch {
+      clearSharePersist()
+      return false
+    }
+  }
+
   return {
     isActive,
     isOwner,
     shareCode,
+    shareRole,
     ownerName,
     participants,
     participantCount,
@@ -158,10 +192,8 @@ export function useShareSession() {
     validateCode,
     connect,
     disconnect,
-    toggle,
-    setQty,
-    setPrice,
     revokeShare,
     getShareUrl,
+    tryReconnect,
   }
 }

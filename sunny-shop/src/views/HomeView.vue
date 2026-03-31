@@ -248,16 +248,20 @@ const shareJoinError = ref('')
 const shareCreating = ref(false)
 const shareCreatedCode = ref('')
 
-// Check URL for share code on mount
-onMounted(() => {
+// Check URL for share code on mount, or reconnect saved session
+onMounted(async () => {
   const url = new URL(window.location.href)
   const code = url.searchParams.get('share')
   if (code) {
     shareJoinCode.value = code
     showShareModal.value = true
-    // Clean URL
     url.searchParams.delete('share')
     window.history.replaceState({}, '', url.toString())
+  } else {
+    // Try to restore share session after page refresh
+    await shareSession.tryReconnect({
+      onUpdate: (items) => sessionStore.enterSharedMode(items),
+    })
   }
 })
 
@@ -279,7 +283,7 @@ async function startSharing() {
 }
 
 function connectAsOwner(code: string) {
-  shareSession.connect(code, {
+  shareSession.connect(code, 'owner', {
     onUpdate: (items) => sessionStore.enterSharedMode(items),
   })
 }
@@ -290,7 +294,7 @@ async function joinSharedSession() {
   shareJoinError.value = ''
   try {
     await shareSession.validateCode(shareJoinCode.value.trim().toUpperCase())
-    shareSession.connect(shareJoinCode.value.trim().toUpperCase(), {
+    shareSession.connect(shareJoinCode.value.trim().toUpperCase(), 'guest', {
       onUpdate: (items) => sessionStore.enterSharedMode(items),
     })
     showShareModal.value = false
@@ -318,31 +322,6 @@ function closeShareModal() {
   showShareModal.value = false
 }
 
-// Session actions — go through WS when in shared mode
-function handleToggle(productId: string) {
-  if (sessionStore.isSharedMode) {
-    const price = sessionStore.getPrice(productId)
-    shareSession.toggle(productId, price)
-  } else {
-    sessionStore.toggle(productId)
-  }
-}
-
-function handleUpdateQty(productId: string, qty: number) {
-  if (sessionStore.isSharedMode) {
-    shareSession.setQty(productId, qty)
-  } else {
-    sessionStore.updateQty(productId, qty)
-  }
-}
-
-function handleUpdatePrice(productId: string, price: number) {
-  if (sessionStore.isSharedMode) {
-    shareSession.setPrice(productId, price)
-  } else {
-    sessionStore.updatePrice(productId, price)
-  }
-}
 </script>
 
 <template>
