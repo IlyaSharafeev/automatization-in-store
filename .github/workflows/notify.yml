@@ -31,34 +31,27 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
-          STATUS="unknown"
 
-          # Debug: check what API returns on first call
+          # Debug: show first deployment object keys
           sleep 30
-          RESPONSE=$(curl -s "https://api.vercel.com/v13/deployments?projectId=${VERCEL_PROJECT_ID}&limit=3&target=production" \
+          RESPONSE=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&limit=1" \
             -H "Authorization: Bearer ${VERCEL_TOKEN}")
-          echo "=== DEBUG API RESPONSE ==="
-          echo "$RESPONSE" | jq '.' 2>/dev/null || echo "$RESPONSE"
-          echo "=========================="
+          echo "=== FIRST DEPLOYMENT OBJECT ==="
+          echo "$RESPONSE" | jq '.deployments[0]' 2>/dev/null || echo "$RESPONSE"
+          echo "================================"
 
+          STATUS="unknown"
           for i in $(seq 1 9); do
-            STATUS=$(echo "$RESPONSE" | jq -r '.deployments[0].readyState // empty' 2>/dev/null)
-            if [ -z "$STATUS" ]; then
-              STATUS=$(echo "$RESPONSE" | jq -r '.deployments[0].state // empty' 2>/dev/null)
-            fi
-            if [ -z "$STATUS" ]; then
-              STATUS="unknown"
-            fi
+            RESPONSE=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&limit=1" \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}")
 
+            STATUS=$(echo "$RESPONSE" | jq -r '.deployments[0] | .readyState // .state // .status // "unknown"' 2>/dev/null || echo "unknown")
             echo "Attempt $i: STATUS=$STATUS"
 
             if [ "$STATUS" = "READY" ] || [ "$STATUS" = "ERROR" ] || [ "$STATUS" = "CANCELED" ]; then
               break
             fi
-
             sleep 30
-            RESPONSE=$(curl -s "https://api.vercel.com/v13/deployments?projectId=${VERCEL_PROJECT_ID}&limit=3&target=production" \
-              -H "Authorization: Bearer ${VERCEL_TOKEN}")
           done
 
           if [ "$STATUS" = "READY" ]; then
