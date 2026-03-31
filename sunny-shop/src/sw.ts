@@ -5,6 +5,13 @@ declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: any[] }
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 
+// When the app sends 'SKIP_WAITING', activate the new SW immediately
+self.addEventListener('message', (event: ExtendableMessageEvent) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
+})
+
 // ── Push notification handler ──────────────────────────────────────
 self.addEventListener('push', (event: PushEvent) => {
   if (!event.data) return
