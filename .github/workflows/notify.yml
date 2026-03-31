@@ -38,14 +38,10 @@ jobs:
             RESPONSE=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&limit=5" \
               -H "Authorization: Bearer ${VERCEL_TOKEN}")
 
-            STATUS=$(echo "$RESPONSE" | jq -r \
-              --arg sha "$COMMIT_SHA" \
-              '.deployments[] | select(.meta.githubCommitSha == $sha) | .state' \
-              2>/dev/null | head -1)
+            echo "Raw response: $RESPONSE" | head -c 500
 
-            if [ -z "$STATUS" ]; then
-              STATUS=$(echo "$RESPONSE" | jq -r '.deployments[0].state' 2>/dev/null || echo "unknown")
-            fi
+            # Try readyState first, then state
+            STATUS=$(echo "$RESPONSE" | jq -r '.deployments[0].readyState // .deployments[0].state // "unknown"' 2>/dev/null || echo "unknown")
 
             echo "Attempt $i: STATUS=$STATUS"
 
